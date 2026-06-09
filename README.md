@@ -1,128 +1,108 @@
-# Esperanto PDF Repair Engine
+# Esperanto Language Engine (PDF Repair Module)
 
-Un sistema avanzado y **100% offline (air-gapped)** diseñado para reparar PDFs de Esperanto que sufren de corrupción en la codificación de caracteres.
+Un motor de procesamiento del lenguaje natural **100% offline (air-gapped)** y determinista, enfocado actualmente en su módulo primario: reparar PDFs de Esperanto que sufren de corrupción en la codificación de caracteres.
+
+---
+
+## 🏆 Resultados de la Fase B (Motor Contextual)
+
+El motor cuenta con un pipeline analítico que no depende de LLMs ni APIs externas. Durante las pruebas de la Fase B:
+- **Volumen de Prueba:** 30 lecciones reales.
+- **Automatización:** **97.10%** (234 casos de ambigüedad severa resueltos de manera automática).
+- **Seguridad (Anti-Alucinaciones):** 7 casos (2.90%) protegidos por el umbral de seguridad estricto (0.85) y enviados a revisión manual.
+- **Naturaleza del Pipeline:** 0% IA Generativa, 0% APIs externas, 100% Offline, $O(1)$ heurístico.
+
+---
 
 ## 📖 Descripción
 
 ### El Problema
-Al generar, imprimir o exportar documentos PDF antiguos (especialmente materiales educativos de Esperanto), los caracteres especiales con circunflejo (ĉ, ĝ, ĥ, ĵ, ŝ, ŭ) suelen perder su codificación. Estos son reemplazados por glifos corruptos, caracteres de otros idiomas (ej. cirílico), o transliteraciones híbridas del X-System o H-System. Esto no solo afecta la legibilidad para el usuario, sino que destruye la indexación y la capacidad de búsqueda (Copy & Paste / CTRL+F) del texto dentro del PDF.
+Al generar o imprimir documentos PDF antiguos, los caracteres especiales del Esperanto con circunflejo (ĉ, ĝ, ĥ, ĵ, ŝ, ŭ) suelen perder su codificación. Son reemplazados por glifos corruptos, caracteres de otros idiomas, o transliteraciones híbridas (X-System/H-System). Esto destruye la indexación y la capacidad de búsqueda (Copy & Paste / CTRL+F).
 
-### Motivación del Proyecto
-La preservación histórica de textos en Esperanto requiere herramientas de recuperación semántica. El *Repair Engine* nace con el objetivo de restaurar de forma masiva bibliotecas digitales sin comprometer la privacidad de los documentos, funcionando sin dependencias a servicios en la nube ni APIs pagas.
+### La Solución: Language Engine
+Más que un simple parcheador de PDFs, este proyecto es un **Language Engine** especializado en morfología, n-gramas contextuales y reglas bilingües del Esperanto. Su objetivo es restaurar de forma masiva bibliotecas digitales sin comprometer la privacidad de los documentos.
 
-## ✨ Características
+---
+
+## ✨ Características Principales
 
 - **Auditoría Automática:** Escaneo veloz de fuentes incrustadas (CMAP) y conteo de caracteres dañados.
-- **Reparación Unicode:** Restauración morfológica profunda que arregla palabras declinadas, plurales o transliteradas de forma mixta.
+- **Reparación Unicode:** Restauración morfológica profunda de palabras declinadas, plurales o transliteradas.
 - **Procesamiento Masivo:** Carga y reparación en lote de decenas de documentos PDF en paralelo.
-- **Revisión Manual:** Interfaz interactiva para revisar y aprobar/rechazar las decisiones automatizadas de baja confianza (falsos positivos).
-- **Funcionamiento Offline:** Motor aislado, utilizando cachés de frecuencia locales y diccionarios Hunspell nativos.
+- **Revisión Manual:** Interfaz interactiva para revisar y aprobar decisiones de baja confianza (falsos positivos).
+- **Motor Offline:** Cachés de frecuencia locales, corpus de Tatoeba (14 MB) y diccionarios Hunspell nativos.
+
+---
+
+## 🏗 Arquitectura (Zelda Heuristic Cascade)
+
+El sistema procesa el texto a través de un esquema en cascada heurístico (7 Capas) antes de reinyectarlo en el formato final:
+
+| Capa | Nombre | Función Principal |
+| :---: | :--- | :--- |
+| **0** | **Text Extraction** | Extracción PyMuPDF y auditoría base de fuentes y glifos. |
+| **1** | **Deku Layer** | *Dictionary Exact Match.* Recuperación rápida de vocabulario determinista. |
+| **2** | **Sheikah Layer** | Análisis morfológico y validación ortográfica mediante Hunspell nativo. |
+| **3** | **Nayru Layer** | *Unigram Frequency.* Caché local para desempate estadístico de palabras. |
+| **4** | **Ocarina Layer** | *Contextual N-grams.* Uso de corpus offline de 14 MB (1.5M N-gramas). |
+| **5** | **Farore Layer** | *Grammar & Bilingual.* Inferencia usando reglas de Esperanto y traducción. |
+| **6** | **Triforce Layer** | *Final Resolution.* Combinación de scores. Delega a humano si `score < 0.85`. |
+| **7** | **Master Layer** | *Text Injection.* Reinyección invisible en el PDF preservando maquetación. |
+
+---
 
 ## 🚀 Tecnologías
 
-**Backend:**
-- **Python** (Core Pipeline)
-- **FastAPI** (Servicios RESTful y Background Tasks)
-- **SQLite** (Persistencia transaccional)
-- **PyMuPDF** (Lectura, Extracción e Inyección de Capas de Texto)
-- **Spylls / Hunspell** (Motor ortográfico local)
+- **Backend:** Python (Core Pipeline), FastAPI (RESTful), SQLite, PyMuPDF, Spylls/Hunspell.
+- **Frontend:** Next.js, TypeScript, Tailwind CSS.
 
-**Frontend:**
-- **Next.js** (Framework React)
-- **TypeScript** (Tipado seguro)
-- **Tailwind CSS** (Interfaz visual moderna y responsive)
+---
 
-## 🏗 Arquitectura
+## 🖥️ Instalación y Ejecución Rápida
 
-### How It Works
-El sistema procesa los documentos defectuosos a través de un esquema en cascada heurístico (6 Capas) antes de reinyectarlos en el PDF:
-
-       [ PDF Original Corrupto ]
-                  ↓
-         [ Text Extraction ]
-         (PyMuPDF / Font Audit)
-                  ↓
-          [ Deku Layer ]
-       (Dictionary Exact Match)
-                  ↓
-         [ Sheikah Layer ]
-     (Morphological & Hunspell)
-                  ↓
-          [ Nayru Layer ]
-       (Unigram Frequency)
-                  ↓
-         [ Ocarina Layer ]
-(Contextual N-grams, 14MB Corpus)
-                  ↓
-          [ Farore Layer ]
-     (Grammar & Bilingual Rules)
-                  ↓
-         [ Triforce Layer ]
-   (Final Resolution & Confidence)
-                  ↓
-          [ Master Layer ]
-   (Invisible Text Injection)
-                  ↓
-         [ PDF Restaurado ]
-```
-
-### Resultados Finales (Fase B)
-- **Volumen de Prueba:** 30 lecciones reales.
-- **Automatización:** 97.10% (234 casos resueltos automáticamente).
-- **Seguridad:** 7 casos protegidos por el umbral de seguridad estricto (0.85) enviados a revisión manual.
-- **Naturaleza del Pipeline:** 0% IA Generativa, 0% APIs externas, 100% Offline y Determinista.
-
-## 📦 Instalación
-
-### Backend
-El backend requiere Python 3.9 o superior.
+El sistema opera como un microservicio dual local. Requiere **Python 3.9+** y **Node.js v18+**.
 
 ```bash
+# 1. Clonar el repositorio
+git clone https://github.com/Arthur1606/esperanto-pdf-repair-engine.git
+cd esperanto-pdf-repair-engine
+
+# 2. Levantar la API (Backend)
 cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-```
+uvicorn main:app --host 127.0.0.1 --port 8000 &
 
-### Frontend
-El frontend requiere Node.js v18+.
-
-```bash
-cd frontend
+# 3. Levantar la Interfaz (Frontend)
+cd ../frontend
 npm install
+npm run dev
 ```
 
-## 🖥️ Ejecución Local
+*Accede al dashboard en: [http://localhost:3000](http://localhost:3000)*
 
-1. **Levantar la API (Backend):**
-   ```bash
-   cd backend
-   source venv/bin/activate
-   uvicorn main:app --host 127.0.0.1 --port 8000
-   ```
-2. **Levantar la Interfaz (Frontend):**
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-   *Accede a [http://localhost:3000](http://localhost:3000)*.
+### 🕹️ Flujo de Uso
+1. **Subir PDF:** Carga el documento defectuoso.
+2. **Auditar:** El servidor extrae metadata y evalúa calidad.
+3. **Reparar:** Pasa por la cascada heurística e incrusta la fuente base (`NotoSans`).
+4. **Resolver:** Dirígete a *Manual Review* si hay palabras de baja confianza.
+5. **Descargar:** Obtén la versión corregida (`[↓ Auto]` o `[↓ Review]`).
 
-## 🕹️ Flujo de Uso
+---
 
-1. **Subir PDF:** Carga tu(s) documento(s) en la interfaz inicial.
-2. **Auditar:** Observa el estado en la tabla de la interfaz mientras el servidor extrae la metadata y la calidad del texto.
-3. **Revisar sugerencias:** Detecta visualmente en la tabla si hay advertencias (warnings) de baja confianza.
-4. **Ejecutar reparación:** El PDF pasará por el pipeline de inyección, incrustando los metadatos y fuentes requeridas (`NotoSans-Regular.ttf`).
-5. **Descargar PDF reparado:** En la tabla, haz clic en el botón `[↓ Auto]` para descargar la versión corregida.
-6. **Resolver casos manuales:** Dirígete a la ventana de *Manual Review* para aprobar correcciones de baja confianza y presiona `[↓ Review]` para descargar la versión homologada por humanos.
+## 🛣️ Roadmap del Proyecto (Fases A-F)
+
+- ✅ **Fase A:** Extracción Base, Detección de Glifos y Recuperación Hunspell. *(Completado)*
+- ✅ **Fase B:** Motor Contextual N-Gramas (Ocarina) y Reglas Bilingües (Farore). *(Completado)*
+- ⏳ **Fase C:** Soporte para PIV (Plena Ilustrita Vortaro) y optimización de memoria (>500 páginas).
+- 📅 **Fase D:** Ampliación a formatos ePub, Mobi y texto plano (desacoplamiento de PDF).
+- 📅 **Fase E:** Despliegue distribuido de procesamiento masivo (Batching a nivel Enterprise).
+- 📅 **Fase F:** Exposición de la cascada heurística como API externa paquetizada para otros clientes.
+
+---
 
 ## ⚠️ Limitaciones Conocidas
 
-- Falsos positivos mínimos cuando el PDF mezcla deliberadamente grandes bloques de texto en español y Esperanto (el detector de idioma lo mitiga, pero no es infalible).
-- La reinyección de fuentes no puede recrear formas vectoriales (glifos) de fuentes customizadas si la codificación binaria original se eliminó. Se inyecta una fuente estándar (`NotoSans`) transparente, restaurando la usabilidad, pero no el aspecto tipográfico de la letra dañada (que permanece visualmente idéntica al PDF original).
-
-## 🛣️ Roadmap v1.1
-
-- Soporte de diccionarios especializados (PIV - Plena Ilustrita Vortaro).
-- Mejora de rendimiento y gestión de memoria para PDFs de más de 500 páginas.
-- Ampliación a formatos ePub y Mobi.
+- Falsos positivos mínimos cuando hay mezcla deliberada de grandes bloques de texto en español y Esperanto (el detector bilingüe mitiga, pero no es infalible).
+- La reinyección inyecta una fuente estándar (`NotoSans`) transparente, restaurando la usabilidad de búsqueda pero dejando el aspecto tipográfico dañado original visualmente idéntico al PDF.
