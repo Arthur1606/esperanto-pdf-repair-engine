@@ -36,3 +36,9 @@ This project relies on several third-party fonts and datasets that operate under
 - **File:** `backend/data/frequency_cache.json`
 - **License:** Creative Commons Attribution-ShareAlike (CC BY-SA).
 - **Origin:** Internally generated caching layer derived from Wikipedia Esperanto Corpus.
+
+### Contextual N-grams (Ocarina)
+- **File:** `backend/data/context_frequency.json`
+- **License:** Creative Commons Attribution (CC-BY 2.0 FR).
+- **Origin:** Derived from the Tatoeba Project (https://tatoeba.org).
+- **Terms:** Data is freely available under CC-BY 2.0 FR. You must give appropriate credit to Tatoeba.

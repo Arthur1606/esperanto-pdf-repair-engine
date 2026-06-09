@@ -37,34 +37,40 @@ La preservación histórica de textos en Esperanto requiere herramientas de recu
 ### How It Works
 El sistema procesa los documentos defectuosos a través de un esquema en cascada heurístico (6 Capas) antes de reinyectarlos en el PDF:
 
-```text
        [ PDF Original Corrupto ]
                   ↓
          [ Text Extraction ]
          (PyMuPDF / Font Audit)
                   ↓
-        [ Detection Layer ]
-     (Identifica anomalías Unicode)
+          [ Deku Layer ]
+       (Dictionary Exact Match)
                   ↓
-       [ Dictionary Layer ]
-  (Mapeo contra raíces de Esperanto)
+         [ Sheikah Layer ]
+     (Morphological & Hunspell)
                   ↓
-        [ Hunspell Layer ]
-  (Generación de candidatos ortográficos)
+          [ Nayru Layer ]
+       (Unigram Frequency)
                   ↓
-    [ Frequency Ranking Layer ]
-(Desempate usando caché de frecuencias local)
+         [ Ocarina Layer ]
+(Contextual N-grams, 14MB Corpus)
                   ↓
-     [ Manual Review Layer ]
- (Aprobación humana para Confianza < 0.85)
+          [ Farore Layer ]
+     (Grammar & Bilingual Rules)
                   ↓
-      [ PDF Repair Layer ]
-  (Inyección de Capa de Texto Invisible)
+         [ Triforce Layer ]
+   (Final Resolution & Confidence)
                   ↓
-      [ PDF Restaurado ]
+          [ Master Layer ]
+   (Invisible Text Injection)
+                  ↓
+         [ PDF Restaurado ]
 ```
 
-![Dashboard Principal](docs/screenshots/dashboard.png)
+### Resultados Finales (Fase B)
+- **Volumen de Prueba:** 30 lecciones reales.
+- **Automatización:** 97.10% (234 casos resueltos automáticamente).
+- **Seguridad:** 7 casos protegidos por el umbral de seguridad estricto (0.85) enviados a revisión manual.
+- **Naturaleza del Pipeline:** 0% IA Generativa, 0% APIs externas, 100% Offline y Determinista.
 
 ## 📦 Instalación
 
@@ -109,10 +115,6 @@ npm install
 4. **Ejecutar reparación:** El PDF pasará por el pipeline de inyección, incrustando los metadatos y fuentes requeridas (`NotoSans-Regular.ttf`).
 5. **Descargar PDF reparado:** En la tabla, haz clic en el botón `[↓ Auto]` para descargar la versión corregida.
 6. **Resolver casos manuales:** Dirígete a la ventana de *Manual Review* para aprobar correcciones de baja confianza y presiona `[↓ Review]` para descargar la versión homologada por humanos.
-
-![Manual Review Pipeline](docs/screenshots/manual_review.png)
-
-![Flujo de Descarga](docs/screenshots/downloads.png)
 
 ## ⚠️ Limitaciones Conocidas
 

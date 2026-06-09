@@ -24,7 +24,19 @@ try:
         with open(freq_path, "r", encoding="utf-8") as f:
             FREQ_CACHE = json.load(f)
 except Exception as e:
-    logger.warning(f"Failed to load frequency cache: {e}")
+    logger.warning(f"Failed to load frequency cache (Nayru): {e}")
+
+OCARINA_BIGRAMS = {}
+OCARINA_TRIGRAMS = {}
+try:
+    context_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "context_frequency.json")
+    if os.path.exists(context_path):
+        with open(context_path, "r", encoding="utf-8") as f:
+            dataset = json.load(f)
+            OCARINA_BIGRAMS = dataset.get("bigrams", {})
+            OCARINA_TRIGRAMS = dataset.get("trigrams", {})
+except Exception as e:
+    logger.warning(f"Failed to load context dataset (Ocarina): {e}")
 
 BASIC_ESPERANTO_DICT = [
     "feliĉo", "ĝojo", "ankaŭ", "eĉ", "ŝipo", "ĉu", "manĝi", 
@@ -142,24 +154,17 @@ def analyze_pdf_fonts(filepath: str) -> list[dict]:
     logger.info(f"Font audit completed. Found {len(result)} fonts.")
     return result
 
-def suggest_esperanto_correction(word):
+def suggest_esperanto_correction(word, snippet=""):
     lower_word = word.lower()
     
     # 0. Damaged Character Recovery (X-System like or hardcoded damaged rules)
-    # Normalize \ufffd to ■ for easier matching
     normalized_word = word.replace("\ufffd", "■")
     lower_normalized = normalized_word.lower()
     if "■" in lower_normalized:
-        damaged_rules = {
-            "e■": "eĉ",
-            "■i": "ŝi",
-            "■iu": "ĉiu",
-            "■ar": "ĉar"
-        }
+        damaged_rules = {"e■": "eĉ", "■i": "ŝi", "■iu": "ĉiu", "■ar": "ĉar"}
         if lower_normalized in damaged_rules:
             suggestion = damaged_rules[lower_normalized]
-            if word[0].isupper():
-                suggestion = suggestion.capitalize()
+            if word[0].isupper(): suggestion = suggestion.capitalize()
             return suggestion, 0.95, "X-System", []
 
     # 1. X-System (direct transliteration)
@@ -173,92 +178,169 @@ def suggest_esperanto_correction(word):
         }
         for old, new in replacements.items():
             suggestion = suggestion.replace(old, new)
-            
         confidence = 0.95
         if HUNSPELL_DICT and not HUNSPELL_DICT.lookup(suggestion):
-            confidence = 0.60 # Send to manual review if it's a weird hybrid like feliĉighi
-            
+            confidence = 0.60
         return suggestion, confidence, "X-System", []
 
-    # 2. Glyph Corruption Recovery (Dictionary exact match for missing diacritics)
+    # 2. Deku: Glyph Corruption Recovery (Dictionary exact match)
     if lower_word in DICT_MAP:
         suggestion = DICT_MAP[lower_word]
-        if word[0].isupper():
-            suggestion = suggestion.capitalize()
-        return suggestion, 0.90, "GLYPH_CORRUPTION_RECOVERY", []
+        if word[0].isupper(): suggestion = suggestion.capitalize()
+        return suggestion, 0.90, "Deku", []
 
-    # 3. Morphological Recovery
-    if "I" in word:
+    # 3. Morphological & Hunspell Recovery (Sheikah)
+    if "I" in word and word != "Iam":
         if bool(re.search(r'[a-z]I', word)) or (word.startswith("I") and len(word) > 1 and word[1:].islower()):
             candidates = generate_candidates(word)
             valid_candidates = []
             for cand in candidates:
                 if is_valid_esperanto(cand):
                     valid_candidates.append(cand)
+                    
             if len(valid_candidates) == 1:
                 suggestion = valid_candidates[0]
-                if word.startswith('I') or word[0].isupper():
-                    suggestion = suggestion.capitalize()
-                return suggestion, 0.95, "MORPHOLOGICAL_RECOVERY", []
+                if word.startswith('I') or word[0].isupper(): suggestion = suggestion.capitalize()
+                return suggestion, 0.95, "Sheikah", []
             
-            # 4. Hunspell Recovery (Fallback for morphology)
+            hunspell_candidates = []
             if HUNSPELL_DICT:
-                hunspell_candidates = []
                 for cand in candidates:
                     if HUNSPELL_DICT.lookup(cand):
                         hunspell_candidates.append(cand)
+            
+            target_candidates = hunspell_candidates if len(hunspell_candidates) > 0 else valid_candidates
+            
+            if len(target_candidates) == 1:
+                suggestion = target_candidates[0]
+                if word.startswith('I') or word[0].isupper(): suggestion = suggestion.capitalize()
+                return suggestion, 0.95, "Sheikah", []
+            elif len(target_candidates) > 1:
+                # We have multiple candidates. Time for Triforce!
                 
-                if len(hunspell_candidates) == 1:
-                    suggestion = hunspell_candidates[0]
-                    if word.startswith('I') or word[0].isupper():
-                        suggestion = suggestion.capitalize()
-                    return suggestion, 0.95, "HUNSPELL_RECOVERY", []
-                elif len(hunspell_candidates) > 1:
-                    # 6. Frequency Ranking Recovery
-                    ranked = []
-                    for c in hunspell_candidates:
-                        freq = FREQ_CACHE.get(c, 0)
-                        ranked.append((c, freq))
-                    
-                    # Sort descending by frequency
-                    ranked.sort(key=lambda x: x[1], reverse=True)
-                    winner = ranked[0][0]
-                    
-                    if word.startswith('I') or word[0].isupper():
-                        winner = winner.capitalize()
-                        
-                    # Low confidence warning for contextual particles/pronouns
-                    low_confidence_words = ['ĉi', 'ĝi', 'ŝi', 'li', 'ni', 'vi', 'ili', 'ĝin', 'ŝin', 'lin', 'nin', 'vin', 'ilin', 'ĉiu', 'tiu', 'kiu', 'iu', 'neniu', 'ĉia', 'tia', 'kia', 'ia', 'nenia']
-                    confidence = 0.60 if winner.lower() in low_confidence_words else 0.85
-                    
-                    return winner, confidence, "FREQUENCY_RECOVERY", hunspell_candidates
-                else:
-                    return None, 0.0, "NO_VALID_CANDIDATE", []
-            else:
-                if len(valid_candidates) > 1:
-                    # Falback to Frequency if Hunspell is disabled
-                    ranked = []
-                    for c in valid_candidates:
-                        freq = FREQ_CACHE.get(c, 0)
-                        ranked.append((c, freq))
-                    ranked.sort(key=lambda x: x[1], reverse=True)
-                    winner = ranked[0][0]
-                    if word.startswith('I') or word[0].isupper():
-                        winner = winner.capitalize()
-                    low_confidence_words = ['ĉi', 'ĝi', 'ŝi', 'li', 'ni', 'vi', 'ili', 'ĝin', 'ŝin', 'lin', 'nin', 'vin', 'ilin', 'ĉiu', 'tiu', 'kiu', 'iu', 'neniu']
-                    confidence = 0.60 if winner.lower() in low_confidence_words else 0.85
-                    return winner, confidence, "FREQUENCY_RECOVERY", valid_candidates
-                else:
-                    return None, 0.0, "NO_VALID_CANDIDATE", []
+                # Extract context from snippet, preserving markers
+                snippet_tokens = re.sub(r'[^\w\^■]', ' ', snippet.lower()).split()
+                prev2, prev_w, next_w, next2 = None, None, None, None
+                
+                try:
+                    # Find our broken word index in snippet (normalized)
+                    norm_word = lower_word.replace("\ufffd", "■")
+                    idx = -1
+                    for i, t in enumerate(snippet_tokens):
+                        if norm_word in t or t in norm_word:
+                            idx = i
+                            break
+                    if idx != -1:
+                        if idx > 0: prev_w = snippet_tokens[idx-1]
+                        if idx > 1: prev2 = snippet_tokens[idx-2]
+                        if idx < len(snippet_tokens)-1: next_w = snippet_tokens[idx+1]
+                        if idx < len(snippet_tokens)-2: next2 = snippet_tokens[idx+2]
+                        # Debug context
+                        if "i" in norm_word:
+                            print(f"DEBUG: word='{norm_word}', snippet='{snippet}', prev='{prev_w}', next='{next_w}'")
+                except Exception:
+                    pass
 
-    # 5. Similarity
+                def apply_farore_rules(c, p, n):
+                    if c == "ĉi" and (n in ["tiu", "tie", "tio", "ĉi", "ĉia", "ĉies"] or p in ["tiu", "tie", "tio"]): return 100000
+                    if c in ["ŝi", "ĝi", "li"] and n and (n.endswith("is") or n.endswith("as") or n.endswith("os") or n.endswith("us")): return 100000
+                    if c == "ĝi" and n in ["estas", "havas", "povas"]: return 100000
+                    if c in ["ŝin", "ĝin", "lin"] and p and (p.endswith("is") or p.endswith("as") or p.endswith("os") or p.endswith("us") or p.endswith("i")): return 100000
+                    return 0
+
+                def apply_farore_bilingual(c, p2, p, n, n2):
+                    def check(words):
+                        for idx, w in enumerate([p, n, p2, n2]):
+                            if w and w in words: return 100000000 / (10 ** idx)
+                        return 0
+                    if c == "li": return check({"él", "el", "yo"})
+                    if c == "ŝi": return check({"ella", "ellas"})
+                    if c == "ĝi": return check({"ello", "eso"})
+                    if c == "ĉi": return check({"este", "esta", "aquí", "esto"})
+                    if c.endswith("n"): return check({"al", "a"}) // 2
+                    return 0
+
+                def apply_farore_vocab(c, snippet_words):
+                    def is_es_inf(w): return w and len(w)>3 and w[-2:] in ["ar", "er", "ir"]
+                    if c.endswith(("i", "as", "is", "os", "us", "u", "a", "o")):
+                        for w in snippet_words:
+                            if is_es_inf(w): return 100000
+                    
+                    bilingual_nouns = {"plaĝo": "playa"}
+                    if c in bilingual_nouns:
+                        if bilingual_nouns[c] in snippet_words:
+                            return 100000
+                        
+                    if c in BASIC_ESPERANTO_DICT: return 10000
+                    return 0
+
+                triforce_scores = []
+                for c in target_candidates:
+                    c_lower = c.lower()
+                    
+                    # Nayru: Unigram Frequency
+                    nayru_score = FREQ_CACHE.get(c_lower, 0)
+                    
+                    # Ocarina: Bigrams + Trigrams
+                    ocarina_score = 0
+                    if prev_w: ocarina_score += OCARINA_BIGRAMS.get(f"{prev_w} {c_lower}", 0)
+                    if next_w: ocarina_score += OCARINA_BIGRAMS.get(f"{c_lower} {next_w}", 0)
+                    if prev2 and prev_w: ocarina_score += (OCARINA_TRIGRAMS.get(f"{prev2} {prev_w} {c_lower}", 0) * 5)
+                    if prev_w and next_w: ocarina_score += (OCARINA_TRIGRAMS.get(f"{prev_w} {c_lower} {next_w}", 0) * 5)
+                    if next_w and next2: ocarina_score += (OCARINA_TRIGRAMS.get(f"{c_lower} {next_w} {next2}", 0) * 5)
+                    
+                    # Farore: Grammar Rules
+                    farore_score = apply_farore_rules(c_lower, prev_w, next_w)
+                    fb_score = apply_farore_bilingual(c_lower, prev2, prev_w, next_w, next2)
+                    fv_score = apply_farore_vocab(c_lower, re.sub(r'[^\w\s]', '', snippet.lower()).split())
+                    
+                    # Triforce Combined
+                    total_score = nayru_score + (ocarina_score * 50) + farore_score + fb_score + fv_score
+                    triforce_scores.append((c, total_score, nayru_score, ocarina_score, farore_score, fb_score, fv_score))
+                
+                triforce_scores.sort(key=lambda x: x[1], reverse=True)
+                winner, t_score, n_score, o_score, f_score, fb_score, fv_score = triforce_scores[0]
+                
+                if word.startswith('I') or word[0].isupper():
+                    winner = winner.capitalize()
+
+                # Calculate confidence to avoid bad silent replacements
+                second_score = triforce_scores[1][1] if len(triforce_scores) > 1 else 0
+                total_t = t_score + second_score
+                
+                confidence = 0.85
+                layer_used = "Nayru"
+                
+                if fb_score > 0:
+                    confidence = 0.95
+                    layer_used = "Farore_Bilingual"
+                elif fv_score > 0:
+                    confidence = 0.95
+                    layer_used = "Farore_Vocab"
+                elif f_score > 0:
+                    confidence = 0.95
+                    layer_used = "Farore"
+                elif total_t == 0:
+                    confidence = 0.60
+                    layer_used = "Triforce_ManualReview"
+                elif t_score / total_t < 0.85:
+                    confidence = 0.60
+                    layer_used = "Triforce_ManualReview"
+                else:
+                    if o_score > 0: layer_used = "Ocarina"
+                    else: layer_used = "Nayru"
+                
+                return winner, confidence, layer_used, target_candidates
+            else:
+                return None, 0.0, "NO_VALID_CANDIDATE", []
+
+    # 5. Similarity (Legacy)
     if len(word) > 3 and all(ord(c) < 128 for c in word):
         matches = difflib.get_close_matches(lower_word, BASIC_ESPERANTO_DICT, n=1, cutoff=0.85)
         if matches:
             suggestion = matches[0]
             if any(c in suggestion for c in 'ĉĝĥĵŝŭ'):
-                if word[0].isupper():
-                    suggestion = suggestion.capitalize()
+                if word[0].isupper(): suggestion = suggestion.capitalize()
                 return suggestion, 0.70, "Similitud", []
                 
     return None, 0.0, None, []
@@ -388,9 +470,38 @@ def analyze_text_quality(filepath: str) -> dict:
     # Detección y análisis de posibles palabras Esperanto perdidas
     missing_esperanto_analysis = []
     
+    zelda_metrics = {
+        "deku_resolved": 0,
+        "sheikah_resolved": 0,
+        "nayru_resolved": 0,
+        "ocarina_resolved": 0,
+        "farore_resolved": 0,
+        "bilingual_resolved": 0,
+        "vocabulary_table_resolved": 0,
+        "triforce_resolved": 0,
+        "unresolved_after_triforce": 0,
+        "unresolved_after_bilingual": 0
+    }
+    
     for word, data in word_page_map.items():
-        suggestion, confidence, detection_type, amb_candidates = suggest_esperanto_correction(word)
-        if suggestion or detection_type in ["UNRESOLVED_CORRUPTION", "AMBIGUOUS_CANDIDATES", "NO_VALID_CANDIDATE", "HUNSPELL_AMBIGUOUS_CANDIDATES"]:
+        suggestion, confidence, detection_type, amb_candidates = suggest_esperanto_correction(word, snippet=data["snippet"])
+        if suggestion or detection_type in ["UNRESOLVED_CORRUPTION", "AMBIGUOUS_CANDIDATES", "NO_VALID_CANDIDATE", "HUNSPELL_AMBIGUOUS_CANDIDATES", "Triforce_ManualReview"]:
+            
+            # Increment Zelda Metrics based on layer_used / detection_type
+            if detection_type == "Deku": zelda_metrics["deku_resolved"] += data["count"]
+            elif detection_type == "Sheikah": zelda_metrics["sheikah_resolved"] += data["count"]
+            elif detection_type == "Nayru": zelda_metrics["nayru_resolved"] += data["count"]
+            elif detection_type == "Ocarina": zelda_metrics["ocarina_resolved"] += data["count"]
+            elif detection_type == "Farore": zelda_metrics["farore_resolved"] += data["count"]
+            elif detection_type == "Farore_Bilingual": zelda_metrics["bilingual_resolved"] += data["count"]
+            elif detection_type == "Farore_Vocab": zelda_metrics["vocabulary_table_resolved"] += data["count"]
+            elif detection_type == "Triforce_ManualReview": 
+                zelda_metrics["unresolved_after_triforce"] += data["count"]
+                zelda_metrics["unresolved_after_bilingual"] += data["count"]
+            
+            if detection_type in ["Nayru", "Ocarina", "Farore", "Farore_Bilingual", "Farore_Vocab"]:
+                zelda_metrics["triforce_resolved"] += data["count"]
+
             unicode_breakdown = ", ".join([f"{c} (U+{ord(c):04X})" for c in suggestion if ord(c) > 127]) if suggestion else ""
             missing_esperanto_analysis.append({
                 "word": word,
@@ -534,5 +645,6 @@ def analyze_text_quality(filepath: str) -> dict:
         "unicode_score": round(unicode_score, 2),
         "text_validity_score": round(text_validity_score, 2),
         "overall_score": round(overall_score, 2),
-        "page_count": page_count
+        "page_count": page_count,
+        "zelda_metrics": zelda_metrics
     }
