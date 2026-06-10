@@ -24,19 +24,19 @@ try:
         with open(freq_path, "r", encoding="utf-8") as f:
             FREQ_CACHE = json.load(f)
 except Exception as e:
-    logger.warning(f"Failed to load frequency cache (Nayru): {e}")
+    logger.warning(f"Failed to load frequency cache (Frekvenco): {e}")
 
-OCARINA_BIGRAMS = {}
-OCARINA_TRIGRAMS = {}
+KUNTEKSTO_BIGRAMS = {}
+KUNTEKSTO_TRIGRAMS = {}
 try:
     context_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "context_frequency.json")
     if os.path.exists(context_path):
         with open(context_path, "r", encoding="utf-8") as f:
             dataset = json.load(f)
-            OCARINA_BIGRAMS = dataset.get("bigrams", {})
-            OCARINA_TRIGRAMS = dataset.get("trigrams", {})
+            KUNTEKSTO_BIGRAMS = dataset.get("bigrams", {})
+            KUNTEKSTO_TRIGRAMS = dataset.get("trigrams", {})
 except Exception as e:
-    logger.warning(f"Failed to load context dataset (Ocarina): {e}")
+    logger.warning(f"Failed to load context dataset (Kunteksto): {e}")
 
 BASIC_ESPERANTO_DICT = [
     "feliĉo", "ĝojo", "ankaŭ", "eĉ", "ŝipo", "ĉu", "manĝi", 
@@ -183,13 +183,13 @@ def suggest_esperanto_correction(word, snippet=""):
             confidence = 0.60
         return suggestion, confidence, "X-System", []
 
-    # 2. Deku: Glyph Corruption Recovery (Dictionary exact match)
+    # 2. Radiko: Glyph Corruption Recovery (Dictionary exact match)
     if lower_word in DICT_MAP:
         suggestion = DICT_MAP[lower_word]
         if word[0].isupper(): suggestion = suggestion.capitalize()
-        return suggestion, 0.90, "Deku", []
+        return suggestion, 0.90, "Radiko", []
 
-    # 3. Morphological & Hunspell Recovery (Sheikah)
+    # 3. Morphological & Hunspell Recovery (Morfo)
     if "I" in word and word != "Iam":
         if bool(re.search(r'[a-z]I', word)) or (word.startswith("I") and len(word) > 1 and word[1:].islower()):
             candidates = generate_candidates(word)
@@ -201,7 +201,7 @@ def suggest_esperanto_correction(word, snippet=""):
             if len(valid_candidates) == 1:
                 suggestion = valid_candidates[0]
                 if word.startswith('I') or word[0].isupper(): suggestion = suggestion.capitalize()
-                return suggestion, 0.95, "Sheikah", []
+                return suggestion, 0.95, "Morfo", []
             
             hunspell_candidates = []
             if HUNSPELL_DICT:
@@ -214,9 +214,9 @@ def suggest_esperanto_correction(word, snippet=""):
             if len(target_candidates) == 1:
                 suggestion = target_candidates[0]
                 if word.startswith('I') or word[0].isupper(): suggestion = suggestion.capitalize()
-                return suggestion, 0.95, "Sheikah", []
+                return suggestion, 0.95, "Morfo", []
             elif len(target_candidates) > 1:
-                # We have multiple candidates. Time for Triforce!
+                # We have multiple candidates. Time for Jugxanto!
                 
                 # Extract context from snippet, preserving markers
                 snippet_tokens = re.sub(r'[^\w\^■]', ' ', snippet.lower()).split()
@@ -241,14 +241,14 @@ def suggest_esperanto_correction(word, snippet=""):
                 except Exception:
                     pass
 
-                def apply_farore_rules(c, p, n):
+                def apply_gramatiko_rules(c, p, n):
                     if c == "ĉi" and (n in ["tiu", "tie", "tio", "ĉi", "ĉia", "ĉies"] or p in ["tiu", "tie", "tio"]): return 100000
                     if c in ["ŝi", "ĝi", "li"] and n and (n.endswith("is") or n.endswith("as") or n.endswith("os") or n.endswith("us")): return 100000
                     if c == "ĝi" and n in ["estas", "havas", "povas"]: return 100000
                     if c in ["ŝin", "ĝin", "lin"] and p and (p.endswith("is") or p.endswith("as") or p.endswith("os") or p.endswith("us") or p.endswith("i")): return 100000
                     return 0
 
-                def apply_farore_bilingual(c, p2, p, n, n2):
+                def apply_gramatiko_bilingual(c, p2, p, n, n2):
                     def check(words):
                         for idx, w in enumerate([p, n, p2, n2]):
                             if w and w in words: return 100000000 / (10 ** idx)
@@ -260,7 +260,7 @@ def suggest_esperanto_correction(word, snippet=""):
                     if c.endswith("n"): return check({"al", "a"}) // 2
                     return 0
 
-                def apply_farore_vocab(c, snippet_words):
+                def apply_gramatiko_vocab(c, snippet_words):
                     def is_es_inf(w): return w and len(w)>3 and w[-2:] in ["ar", "er", "ir"]
                     if c.endswith(("i", "as", "is", "os", "us", "u", "a", "o")):
                         for w in snippet_words:
@@ -274,61 +274,61 @@ def suggest_esperanto_correction(word, snippet=""):
                     if c in BASIC_ESPERANTO_DICT: return 10000
                     return 0
 
-                triforce_scores = []
+                jugxanto_scores = []
                 for c in target_candidates:
                     c_lower = c.lower()
                     
-                    # Nayru: Unigram Frequency
-                    nayru_score = FREQ_CACHE.get(c_lower, 0)
+                    # Frekvenco: Unigram Frequency
+                    frekvenco_score = FREQ_CACHE.get(c_lower, 0)
                     
-                    # Ocarina: Bigrams + Trigrams
-                    ocarina_score = 0
-                    if prev_w: ocarina_score += OCARINA_BIGRAMS.get(f"{prev_w} {c_lower}", 0)
-                    if next_w: ocarina_score += OCARINA_BIGRAMS.get(f"{c_lower} {next_w}", 0)
-                    if prev2 and prev_w: ocarina_score += (OCARINA_TRIGRAMS.get(f"{prev2} {prev_w} {c_lower}", 0) * 5)
-                    if prev_w and next_w: ocarina_score += (OCARINA_TRIGRAMS.get(f"{prev_w} {c_lower} {next_w}", 0) * 5)
-                    if next_w and next2: ocarina_score += (OCARINA_TRIGRAMS.get(f"{c_lower} {next_w} {next2}", 0) * 5)
+                    # Kunteksto: Bigrams + Trigrams
+                    kunteksto_score = 0
+                    if prev_w: kunteksto_score += KUNTEKSTO_BIGRAMS.get(f"{prev_w} {c_lower}", 0)
+                    if next_w: kunteksto_score += KUNTEKSTO_BIGRAMS.get(f"{c_lower} {next_w}", 0)
+                    if prev2 and prev_w: kunteksto_score += (KUNTEKSTO_TRIGRAMS.get(f"{prev2} {prev_w} {c_lower}", 0) * 5)
+                    if prev_w and next_w: kunteksto_score += (KUNTEKSTO_TRIGRAMS.get(f"{prev_w} {c_lower} {next_w}", 0) * 5)
+                    if next_w and next2: kunteksto_score += (KUNTEKSTO_TRIGRAMS.get(f"{c_lower} {next_w} {next2}", 0) * 5)
                     
-                    # Farore: Grammar Rules
-                    farore_score = apply_farore_rules(c_lower, prev_w, next_w)
-                    fb_score = apply_farore_bilingual(c_lower, prev2, prev_w, next_w, next2)
-                    fv_score = apply_farore_vocab(c_lower, re.sub(r'[^\w\s]', '', snippet.lower()).split())
+                    # Gramatiko: Grammar Rules
+                    gramatiko_score = apply_gramatiko_rules(c_lower, prev_w, next_w)
+                    gb_score = apply_gramatiko_bilingual(c_lower, prev2, prev_w, next_w, next2)
+                    gv_score = apply_gramatiko_vocab(c_lower, re.sub(r'[^\w\s]', '', snippet.lower()).split())
                     
-                    # Triforce Combined
-                    total_score = nayru_score + (ocarina_score * 50) + farore_score + fb_score + fv_score
-                    triforce_scores.append((c, total_score, nayru_score, ocarina_score, farore_score, fb_score, fv_score))
+                    # Jugxanto Combined
+                    total_score = frekvenco_score + (kunteksto_score * 50) + gramatiko_score + gb_score + gv_score
+                    jugxanto_scores.append((c, total_score, frekvenco_score, kunteksto_score, gramatiko_score, gb_score, gv_score))
                 
-                triforce_scores.sort(key=lambda x: x[1], reverse=True)
-                winner, t_score, n_score, o_score, f_score, fb_score, fv_score = triforce_scores[0]
+                jugxanto_scores.sort(key=lambda x: x[1], reverse=True)
+                winner, t_score, n_score, o_score, f_score, gb_score, gv_score = jugxanto_scores[0]
                 
                 if word.startswith('I') or word[0].isupper():
                     winner = winner.capitalize()
 
                 # Calculate confidence to avoid bad silent replacements
-                second_score = triforce_scores[1][1] if len(triforce_scores) > 1 else 0
+                second_score = jugxanto_scores[1][1] if len(jugxanto_scores) > 1 else 0
                 total_t = t_score + second_score
                 
                 confidence = 0.85
-                layer_used = "Nayru"
+                layer_used = "Frekvenco"
                 
-                if fb_score > 0:
+                if gb_score > 0:
                     confidence = 0.95
-                    layer_used = "Farore_Bilingual"
-                elif fv_score > 0:
+                    layer_used = "Gramatiko_Bilingual"
+                elif gv_score > 0:
                     confidence = 0.95
-                    layer_used = "Farore_Vocab"
+                    layer_used = "Gramatiko_Vocab"
                 elif f_score > 0:
                     confidence = 0.95
-                    layer_used = "Farore"
+                    layer_used = "Gramatiko"
                 elif total_t == 0:
                     confidence = 0.60
-                    layer_used = "Triforce_ManualReview"
+                    layer_used = "Jugxanto_ManualReview"
                 elif t_score / total_t < 0.85:
                     confidence = 0.60
-                    layer_used = "Triforce_ManualReview"
+                    layer_used = "Jugxanto_ManualReview"
                 else:
-                    if o_score > 0: layer_used = "Ocarina"
-                    else: layer_used = "Nayru"
+                    if o_score > 0: layer_used = "Kunteksto"
+                    else: layer_used = "Frekvenco"
                 
                 return winner, confidence, layer_used, target_candidates
             else:
@@ -470,37 +470,37 @@ def analyze_text_quality(filepath: str) -> dict:
     # Detección y análisis de posibles palabras Esperanto perdidas
     missing_esperanto_analysis = []
     
-    zelda_metrics = {
-        "deku_resolved": 0,
-        "sheikah_resolved": 0,
-        "nayru_resolved": 0,
-        "ocarina_resolved": 0,
-        "farore_resolved": 0,
+    arkitekturo_metrics = {
+        "radiko_resolved": 0,
+        "morfo_resolved": 0,
+        "frekvenco_resolved": 0,
+        "kunteksto_resolved": 0,
+        "gramatiko_resolved": 0,
         "bilingual_resolved": 0,
         "vocabulary_table_resolved": 0,
-        "triforce_resolved": 0,
-        "unresolved_after_triforce": 0,
+        "jugxanto_resolved": 0,
+        "unresolved_after_jugxanto": 0,
         "unresolved_after_bilingual": 0
     }
     
     for word, data in word_page_map.items():
         suggestion, confidence, detection_type, amb_candidates = suggest_esperanto_correction(word, snippet=data["snippet"])
-        if suggestion or detection_type in ["UNRESOLVED_CORRUPTION", "AMBIGUOUS_CANDIDATES", "NO_VALID_CANDIDATE", "HUNSPELL_AMBIGUOUS_CANDIDATES", "Triforce_ManualReview"]:
+        if suggestion or detection_type in ["UNRESOLVED_CORRUPTION", "AMBIGUOUS_CANDIDATES", "NO_VALID_CANDIDATE", "HUNSPELL_AMBIGUOUS_CANDIDATES", "Jugxanto_ManualReview"]:
             
-            # Increment Zelda Metrics based on layer_used / detection_type
-            if detection_type == "Deku": zelda_metrics["deku_resolved"] += data["count"]
-            elif detection_type == "Sheikah": zelda_metrics["sheikah_resolved"] += data["count"]
-            elif detection_type == "Nayru": zelda_metrics["nayru_resolved"] += data["count"]
-            elif detection_type == "Ocarina": zelda_metrics["ocarina_resolved"] += data["count"]
-            elif detection_type == "Farore": zelda_metrics["farore_resolved"] += data["count"]
-            elif detection_type == "Farore_Bilingual": zelda_metrics["bilingual_resolved"] += data["count"]
-            elif detection_type == "Farore_Vocab": zelda_metrics["vocabulary_table_resolved"] += data["count"]
-            elif detection_type == "Triforce_ManualReview": 
-                zelda_metrics["unresolved_after_triforce"] += data["count"]
-                zelda_metrics["unresolved_after_bilingual"] += data["count"]
+            # Increment Arkitekturo Metrics based on layer_used / detection_type
+            if detection_type == "Radiko": arkitekturo_metrics["radiko_resolved"] += data["count"]
+            elif detection_type == "Morfo": arkitekturo_metrics["morfo_resolved"] += data["count"]
+            elif detection_type == "Frekvenco": arkitekturo_metrics["frekvenco_resolved"] += data["count"]
+            elif detection_type == "Kunteksto": arkitekturo_metrics["kunteksto_resolved"] += data["count"]
+            elif detection_type == "Gramatiko": arkitekturo_metrics["gramatiko_resolved"] += data["count"]
+            elif detection_type == "Gramatiko_Bilingual": arkitekturo_metrics["bilingual_resolved"] += data["count"]
+            elif detection_type == "Gramatiko_Vocab": arkitekturo_metrics["vocabulary_table_resolved"] += data["count"]
+            elif detection_type == "Jugxanto_ManualReview": 
+                arkitekturo_metrics["unresolved_after_jugxanto"] += data["count"]
+                arkitekturo_metrics["unresolved_after_bilingual"] += data["count"]
             
-            if detection_type in ["Nayru", "Ocarina", "Farore", "Farore_Bilingual", "Farore_Vocab"]:
-                zelda_metrics["triforce_resolved"] += data["count"]
+            if detection_type in ["Frekvenco", "Kunteksto", "Gramatiko", "Gramatiko_Bilingual", "Gramatiko_Vocab"]:
+                arkitekturo_metrics["jugxanto_resolved"] += data["count"]
 
             unicode_breakdown = ", ".join([f"{c} (U+{ord(c):04X})" for c in suggestion if ord(c) > 127]) if suggestion else ""
             missing_esperanto_analysis.append({
@@ -646,5 +646,5 @@ def analyze_text_quality(filepath: str) -> dict:
         "text_validity_score": round(text_validity_score, 2),
         "overall_score": round(overall_score, 2),
         "page_count": page_count,
-        "zelda_metrics": zelda_metrics
+        "arkitekturo_metrics": arkitekturo_metrics
     }

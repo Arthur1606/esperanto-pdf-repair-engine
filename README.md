@@ -34,20 +34,20 @@ Más que un simple parcheador de PDFs, este proyecto es un **Language Engine** e
 
 ---
 
-## 🏗 Arquitectura (Zelda Heuristic Cascade)
+## 🏗 Arquitectura (Arkitekturo Heuristic Cascade)
 
 El sistema procesa el texto a través de un esquema en cascada heurístico (7 Capas) antes de reinyectarlo en el formato final:
 
 | Capa | Nombre | Función Principal |
 | :---: | :--- | :--- |
 | **0** | **Text Extraction** | Extracción PyMuPDF y auditoría base de fuentes y glifos. |
-| **1** | **Deku Layer** | *Dictionary Exact Match.* Recuperación rápida de vocabulario determinista. |
-| **2** | **Sheikah Layer** | Análisis morfológico y validación ortográfica mediante Hunspell nativo. |
-| **3** | **Nayru Layer** | *Unigram Frequency.* Caché local para desempate estadístico de palabras. |
-| **4** | **Ocarina Layer** | *Contextual N-grams.* Uso de corpus offline de 14 MB (1.5M N-gramas). |
-| **5** | **Farore Layer** | *Grammar & Bilingual.* Inferencia usando reglas de Esperanto y traducción. |
-| **6** | **Triforce Layer** | *Final Resolution.* Combinación de scores. Delega a humano si `score < 0.85`. |
-| **7** | **Master Layer** | *Text Injection.* Reinyección invisible en el PDF preservando maquetación. |
+| **1** | **Radiko Layer** | *Dictionary Exact Match.* Recuperación rápida de vocabulario determinista. |
+| **2** | **Morfo Layer** | Análisis morfológico y validación ortográfica mediante Hunspell nativo. |
+| **3** | **Frekvenco Layer** | *Unigram Frequency.* Caché local para desempate estadístico de palabras. |
+| **4** | **Kunteksto Layer** | *Contextual N-grams.* Uso de corpus offline de 14 MB (1.5M N-gramas). |
+| **5** | **Gramatiko Layer** | *Grammar & Bilingual.* Inferencia usando reglas de Esperanto y traducción. |
+| **6** | **Jugxanto Layer** | *Final Resolution.* Combinación de scores. Delega a humano si `score < 0.85`. |
+| **7** | **Restarigo Layer** | *Text Injection.* Reinyección invisible en el PDF preservando maquetación. |
 
 ---
 
@@ -94,7 +94,7 @@ npm run dev
 ## 🛣️ Roadmap del Proyecto (Fases A-F)
 
 - ✅ **Fase A:** Extracción Base, Detección de Glifos y Recuperación Hunspell. *(Completado)*
-- ✅ **Fase B:** Motor Contextual N-Gramas (Ocarina) y Reglas Bilingües (Farore). *(Completado)*
+- ✅ **Fase B:** Motor Contextual N-Gramas (Kunteksto) y Reglas Bilingües (Gramatiko). *(Completado)*
 - ⏳ **Fase C:** Soporte para PIV (Plena Ilustrita Vortaro) y optimización de memoria (>500 páginas).
 - 📅 **Fase D:** Ampliación a formatos ePub, Mobi y texto plano (desacoplamiento de PDF).
 - 📅 **Fase E:** Despliegue distribuido de procesamiento masivo (Batching a nivel Enterprise).

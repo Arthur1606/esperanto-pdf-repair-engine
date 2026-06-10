@@ -8,14 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-06-09
 
 ### Added
-- **Ocarina Layer**: Integración de motor contextual offline (N-gramas) utilizando un corpus de 14.11 MB derivado de Tatoeba (1.5 Millones de N-gramas).
-- **Farore Layer**: Motor de reglas gramaticales y sub-módulo bilingüe para inferencia determinista en tablas didácticas y contextos de traducción.
-- **Triforce Layer**: Motor central de heurística ponderada para toma de decisiones ortográficas de Esperanto.
+- **Kunteksto Layer**: Integración de motor contextual offline (N-gramas) utilizando un corpus de 14.11 MB derivado de Tatoeba (1.5 Millones de N-gramas).
+- **Gramatiko Layer**: Motor de reglas gramaticales y sub-módulo bilingüe para inferencia determinista en tablas didácticas y contextos de traducción.
+- **Jugxanto Layer**: Motor central de heurística ponderada para toma de decisiones ortográficas de Esperanto.
 - **Batch Processing Dashboard**: Nueva interfaz unificada en el frontend (Next.js) para gestionar documentos y observar progreso.
 - **Flujo de Descargas**: Rutas directas para descargar `_repaired.pdf` y `_repaired_reviewed.pdf` desde la UI.
 - **Exportación Global**: Exportación local en CSV y JSON consolidada.
-- **Frequency Ranking Cache (Nayru)**: Sistema offline para desempatar ambigüedades morfológicas basado en frecuencias pre-cacheadas, evitando latencia HTTP y fallos de conexión.
-- **PyMuPDF Inyección (Master)**: Inyección de texto por medio de transparencia OCR, preservando el PDF inmutable original.
+- **Frequency Ranking Cache (Frekvenco)**: Sistema offline para desempatar ambigüedades morfológicas basado en frecuencias pre-cacheadas, evitando latencia HTTP y fallos de conexión.
+- **PyMuPDF Inyección (Restarigo)**: Inyección de texto por medio de transparencia OCR, preservando el PDF inmutable original.
 
 ### Changed
 - **Migración de Licencia**: Reemplazada licencia MIT por **MPL 2.0** para asegurar el uso en formato "Covered Software".

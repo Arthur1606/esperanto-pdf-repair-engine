@@ -1,7 +1,7 @@
 import os
 import urllib.request
 
-DICT_URL = "https://raw.githubusercontent.com/hinkok/esperanto-dictionary/master/esperanto_words.txt"
+DICT_URL = "https://raw.githubusercontent.com/hinkok/esperanto-dictionary/restarigo/esperanto_words.txt"
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 DICT_PATH = os.path.join(DATA_DIR, "esperanto_roots.txt")
 

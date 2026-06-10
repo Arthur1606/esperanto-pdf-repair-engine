@@ -14,7 +14,7 @@ for f in files:
     try:
         res = analyze_text_quality(f)
         for item in res.get("missing_esperanto_analysis", []):
-            if item["detection_type"] == "Triforce_ManualReview":
+            if item["detection_type"] == "Jugxanto_ManualReview":
                 for _ in range(item["count"]):
                     all_manual_reviews.append({
                         "file": os.path.basename(f),
@@ -41,8 +41,8 @@ for mr in all_manual_reviews:
     total_t = top1["total_score"] + top2["total_score"]
     ratio = top1["total_score"] / total_t if total_t > 0 else 0
     
-    print(f"Top 1: {top1['candidate']} (Score: {top1['total_score']}, N: {top1['nayru_freq']}, O: {top1['ocarina_context']}, F: {top1['farore_rules']})")
-    print(f"Top 2: {top2['candidate']} (Score: {top2['total_score']}, N: {top2['nayru_freq']}, O: {top2['ocarina_context']}, F: {top2['farore_rules']})")
+    print(f"Top 1: {top1['candidate']} (Score: {top1['total_score']}, N: {top1['frekvenco_freq']}, O: {top1['kunteksto_context']}, F: {top1['gramatiko_rules']})")
+    print(f"Top 2: {top2['candidate']} (Score: {top2['total_score']}, N: {top2['frekvenco_freq']}, O: {top2['kunteksto_context']}, F: {top2['gramatiko_rules']})")
     print(f"Ratio: {ratio:.4f}")
     
     for t in thresholds:

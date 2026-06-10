@@ -1,4 +1,4 @@
-# Phase B Complete: The Zelda Architecture
+# Phase B Complete: The Arkitekturo Architecture
 
 This document marks the successful completion of **Phase B** of the Esperanto PDF Repair Engine.
 
@@ -8,13 +8,13 @@ Phase B focused on resolving linguistic ambiguities without relying on AI, LLMs,
 ## The 7-Layer Architecture
 The engine now operates on a strict, sequential 7-layer cascade:
 
-1. **Deku Layer:** Dictionary exact match. Quick recovery of deterministic vocabulary.
-2. **Sheikah Layer:** Morphological analysis and Hunspell validation. Generates candidate words for broken sequences.
-3. **Nayru Layer:** Unigram frequency cache. Acts as the baseline tie-breaker for single-word probabilities.
-4. **Ocarina Layer:** Contextual N-grams. Employs a 14.11 MB offline corpus (1.5M bigrams/trigrams) to score candidates based on surrounding words.
-5. **Farore Layer:** Grammar & Bilingual Rules. Applies deterministic grammatical constraints (e.g., `-n` accusative matching) and a bilingual proximity module (`±30 chars`) to infer context from mixed Spanish-Esperanto pedagogical tables.
-6. **Triforce Layer:** Final Resolution. Combines all scores. If `confidence < 0.85`, it forwards the decision to a human via the Dashboard.
-7. **Master Layer:** Invisible Text Injection. Reinjects the repaired words seamlessly into the PDF structure.
+1. **Radiko Layer:** Dictionary exact match. Quick recovery of deterministic vocabulary.
+2. **Morfo Layer:** Morphological analysis and Hunspell validation. Generates candidate words for broken sequences.
+3. **Frekvenco Layer:** Unigram frequency cache. Acts as the baseline tie-breaker for single-word probabilities.
+4. **Kunteksto Layer:** Contextual N-grams. Employs a 14.11 MB offline corpus (1.5M bigrams/trigrams) to score candidates based on surrounding words.
+5. **Gramatiko Layer:** Grammar & Bilingual Rules. Applies deterministic grammatical constraints (e.g., `-n` accusative matching) and a bilingual proximity module (`±30 chars`) to infer context from mixed Spanish-Esperanto pedagogical tables.
+6. **Jugxanto Layer:** Final Resolution. Combines all scores. If `confidence < 0.85`, it forwards the decision to a human via the Dashboard.
+7. **Restarigo Layer:** Invisible Text Injection. Reinjects the repaired words seamlessly into the PDF structure.
 
 ## Final Metrics
 Tested across a dataset of 30 authentic textbook lessons containing 241 complex contextual ambiguities:

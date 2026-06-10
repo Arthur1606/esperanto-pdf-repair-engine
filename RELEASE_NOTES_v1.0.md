@@ -7,7 +7,7 @@ Esta versión marca el paso de un prototipo analítico a un producto robusto y c
 ## 🌟 Capacidades Clave
 
 - **Procesamiento Masivo (Batch Processing):** Soporte completo para cargar y procesar colas de múltiples archivos PDF simultáneamente.
-- **Pipeline de Reparación Híbrido (Offline):** Orquestación heurística de 7 niveles (Deku, Sheikah, Nayru, Ocarina, Farore, Triforce, Master) 100% aislados de internet (Air-Gapped).
+- **Pipeline de Reparación Híbrido (Offline):** Orquestación heurística de 7 niveles (Radiko, Morfo, Frekvenco, Kunteksto, Gramatiko, Jugxanto, Restarigo) 100% aislados de internet (Air-Gapped).
 - **Inyección Transparente (PyMuPDF):** Las palabras reparadas se reinyectan al PDF de origen creando una capa de texto transparente ("invisible") sobre el texto mal codificado, permitiendo búsquedas y extracción sin desconfigurar la maquetación.
 - **Manual Review System:** Interfaz interactiva para moderar falsos positivos y palabras de baja confianza (inferior a 0.85).
 - **Exportación de Reportes Globales:** Exportación integrada de datos estadísticos consolidados en formatos CSV y JSON.

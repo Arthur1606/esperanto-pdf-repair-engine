@@ -12,7 +12,7 @@ for f in files:
     try:
         res = analyze_text_quality(f)
         for item in res.get("missing_esperanto_analysis", []):
-            if item["detection_type"] == "Triforce_ManualReview":
+            if item["detection_type"] == "Jugxanto_ManualReview":
                 for _ in range(item["count"]):
                     print(f"File: {os.path.basename(f)}")
                     print(f"Word: {item['word']} -> {item['ambiguous_candidates']}")
