@@ -164,30 +164,27 @@ def suggest_esperanto_correction(word: str, snippet: str = "") -> dict:
     # 1. Normalize X-system
     normalized_word = normalize_x_system(word)
     if normalized_word != word:
-        # If it was an X-system word, and now it's valid unicode Esperanto
-        # we can just return it as a high confidence repair
-        if Dictionary.from_files('data/hunspell/eo').lookup(normalized_word):
-            return {"suggestion": normalized_word, "confidence": 0.99, "type": "SUCCESSFUL_REPAIR", "candidates": [normalized_word]}
+        if HUNSPELL_DICT and HUNSPELL_DICT.lookup(normalized_word):
+            return normalized_word, 0.99, "SUCCESSFUL_REPAIR", [normalized_word]
             
     # 2. LingvoDetektilo pre-check
-    # Prevent repairing valid Spanish or Proper names that OCR mangled slightly
     lang_scores = detect_language(word, snippet)
     is_explicitly_damaged = "I" in word or "■" in word
     
     if not is_explicitly_damaged:
         if lang_scores["spanish_score"] > 0.8:
-            return {"suggestion": None, "confidence": 0.0, "type": "NO_VALID_CANDIDATE", "candidates": []}
+            return None, 0.0, "NO_VALID_CANDIDATE", []
         if lang_scores["proper_name_score"] > 0.8:
-            return {"suggestion": None, "confidence": 0.0, "type": "NO_VALID_CANDIDATE", "candidates": []}
+            return None, 0.0, "NO_VALID_CANDIDATE", []
     
     try:
         lower_word = word.lower()
         if HUNSPELL_ES and HUNSPELL_ES.lookup(lower_word) and not is_explicitly_damaged:
-            return {"suggestion": None, "confidence": 0.0, "type": "NO_VALID_CANDIDATE", "candidates": []}
+            return None, 0.0, "NO_VALID_CANDIDATE", []
             
         cands = list(HUNSPELL_DICT.suggest(word)) if HUNSPELL_DICT else []
         if not cands:
-            return {"suggestion": None, "confidence": 0.0, "type": "NO_VALID_CANDIDATE", "candidates": []}
+            return None, 0.0, "NO_VALID_CANDIDATE", []
             
         # 3. Semantikisto Evaluation
         best_cand = None
@@ -200,15 +197,15 @@ def suggest_esperanto_correction(word: str, snippet: str = "") -> dict:
                 best_cand = cand
                 
         if best_cand and best_score >= 0.85:
-            return {"suggestion": best_cand, "confidence": best_score, "type": "SUCCESSFUL_REPAIR", "candidates": cands}
+            return best_cand, best_score, "SUCCESSFUL_REPAIR", cands
         elif best_cand:
-            return {"suggestion": best_cand, "confidence": best_score, "type": "AMBIGUOUS_CANDIDATES", "candidates": cands}
+            return best_cand, best_score, "AMBIGUOUS_CANDIDATES", cands
         else:
-            return {"suggestion": cands[0], "confidence": 0.5, "type": "HUNSPELL_AMBIGUOUS_CANDIDATES", "candidates": cands}
+            return cands[0], 0.5, "HUNSPELL_AMBIGUOUS_CANDIDATES", cands
             
     except Exception as e:
         logger.error(f"Error suggesting correction for {word}: {e}")
-        return {"suggestion": None, "confidence": 0.0, "type": "ERROR", "candidates": []}
+        return None, 0.0, "ERROR", []
 
 def legacy_suggest_esperanto_correction(word, snippet=""):
     damaged_markers = ['■', '\ufffd']
