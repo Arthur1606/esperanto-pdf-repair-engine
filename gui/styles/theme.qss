@@ -1,0 +1,27 @@
+QMainWindow {
+    background-color: #1e1e1e;
+    color: #ffffff;
+}
+QWidget {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+QTableWidget {
+    background-color: #252526;
+    gridline-color: #3e3e42;
+}
+QHeaderView::section {
+    background-color: #333333;
+    padding: 4px;
+    border: 1px solid #3e3e42;
+}
+QPushButton {
+    background-color: #007acc;
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+}
+QPushButton:hover {
+    background-color: #0098ff;
+}
