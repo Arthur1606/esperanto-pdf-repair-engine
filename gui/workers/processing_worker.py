@@ -2,6 +2,7 @@ from PySide6.QtCore import QThread, Signal
 from gui.models import DocumentJob, RepairResult
 from gui.services.tekira_service import TekiraService
 import logging
+import time
 
 logger = logging.getLogger("studio.worker")
 
@@ -18,14 +19,20 @@ class ProcessingWorker(QThread):
 
     def run(self):
         try:
+            t0 = time.time()
             self.started.emit(self.job.id)
-            for i in range(1, 101, 10):
-                self.progress_updated.emit(self.job.id, i)
-                self.msleep(100) # Simular auditoría
+            self.progress_updated.emit(self.job.id, 10)
             
+            # Real execution
             result = self.service.analyze_document(self.job)
+            
+            self.progress_updated.emit(self.job.id, 90)
+            
+            dt = time.time() - t0
+            logger.info(f"Job {self.job.id} done in {dt:.2f}s")
+            
             self.progress_updated.emit(self.job.id, 100)
             self.finished.emit(self.job.id, result)
         except Exception as e:
-            logger.error(f"Error en worker: {e}")
+            logger.error(f"Worker Error: {e}")
             self.error.emit(self.job.id, str(e))

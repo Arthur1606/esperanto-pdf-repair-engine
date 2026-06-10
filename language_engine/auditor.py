@@ -345,18 +345,70 @@ def suggest_esperanto_correction(word, snippet=""):
                 
     return None, 0.0, None, []
 
+
+from collections import Counter
+
+def _populate_maps(page_text, page_num_1_indexed, word_page_map, char_counter, esperanto_audit_map, spanish_audit_map):
+    esperanto_chars = set(["ĉ", "ĝ", "ĥ", "ĵ", "ŝ", "ŭ", "Ĉ", "Ĝ", "Ĥ", "Ĵ", "Ŝ", "Ŭ"])
+    spanish_chars = ["á", "é", "í", "ó", "ú", "ñ", "Á", "É", "Í", "Ó", "Ú", "Ñ", "¿", "¡"]
+    
+    page_words = re.finditer(r'[A-Za-z■�]+', page_text)
+    for m in page_words:
+        w = m.group()
+        if len(w) > 1:
+            norm_w = w.replace("\ufffd", "■")
+            if norm_w not in word_page_map:
+                start_idx = max(0, m.start() - 30)
+                end_idx = min(len(page_text), m.end() + 30)
+                snippet = page_text[start_idx:end_idx].replace('\n', ' ').strip()
+                word_page_map[norm_w] = {"count": 0, "pages": set(), "snippet": snippet}
+            word_page_map[norm_w]["count"] += 1
+            word_page_map[norm_w]["pages"].add(page_num_1_indexed)
+    
+    for c in page_text:
+        char_counter[c] += 1
+        if c in esperanto_chars:
+            esperanto_audit_map[c]["count"] += 1
+            esperanto_audit_map[c]["pages"].add(page_num_1_indexed)
+        if c in spanish_chars:
+            spanish_audit_map[c]["count"] += 1
+            spanish_audit_map[c]["pages"].add(page_num_1_indexed)
+
+def analyze_raw_text(text_content: str) -> dict:
+    logger.info("Auditing raw text (TXT/Clipboard)")
+    text_content = unicodedata.normalize('NFC', text_content)
+    char_counter = Counter()
+    word_page_map = {}
+    esperanto_chars = set(["ĉ", "ĝ", "ĥ", "ĵ", "ŝ", "ŭ", "Ĉ", "Ĝ", "Ĥ", "Ĵ", "Ŝ", "Ŭ"])
+    spanish_chars = ["á", "é", "í", "ó", "ú", "ñ", "Á", "É", "Í", "Ó", "Ú", "Ñ", "¿", "¡"]
+    esperanto_audit_map = {c: {"count": 0, "pages": set()} for c in esperanto_chars}
+    spanish_audit_map = {c: {"count": 0, "pages": set()} for c in spanish_chars}
+
+    _populate_maps(text_content, 1, word_page_map, char_counter, esperanto_audit_map, spanish_audit_map)
+    return _analyze_extracted_data(text_content, word_page_map, char_counter, esperanto_audit_map, spanish_audit_map, 1)
+
 def analyze_text_quality(filepath: str) -> dict:
     logger.info(f"Auditing text quality for {filepath}")
     doc = fitz.open(filepath)
     text_content = ""
     page_count = len(doc)
-    for page in doc:
-        text_content += page.get_text()
-        
-    # Normalizar Unicode a NFC
-    text_content = unicodedata.normalize('NFC', text_content)
     
-    # Classification counters
+    char_counter = Counter()
+    word_page_map = {}
+    esperanto_chars = set(["ĉ", "ĝ", "ĥ", "ĵ", "ŝ", "ŭ", "Ĉ", "Ĝ", "Ĥ", "Ĵ", "Ŝ", "Ŭ"])
+    spanish_chars = ["á", "é", "í", "ó", "ú", "ñ", "Á", "É", "Í", "Ó", "Ú", "Ñ", "¿", "¡"]
+    esperanto_audit_map = {c: {"count": 0, "pages": set()} for c in esperanto_chars}
+    spanish_audit_map = {c: {"count": 0, "pages": set()} for c in spanish_chars}
+
+    for page_num, page in enumerate(doc):
+        page_text = unicodedata.normalize('NFC', page.get_text())
+        text_content += page_text
+        _populate_maps(page_text, page_num + 1, word_page_map, char_counter, esperanto_audit_map, spanish_audit_map)
+        
+    doc.close()
+    return _analyze_extracted_data(text_content, word_page_map, char_counter, esperanto_audit_map, spanish_audit_map, page_count)
+
+def _analyze_extracted_data(text_content, word_page_map, char_counter, esperanto_audit_map, spanish_audit_map, page_count):
     total_chars = 0
     ascii_letters = 0
     unicode_letters = 0
@@ -369,70 +421,24 @@ def analyze_text_quality(filepath: str) -> dict:
     damaged_markers = set(["■", "\ufffd", "\x00"]) 
     
     damaged_instances_detailed = []
-    esperanto_audit_map = {c: {"count": 0, "pages": set()} for c in esperanto_chars}
-    
-    spanish_chars = ["á", "é", "í", "ó", "ú", "ñ", "Á", "É", "Í", "Ó", "Ú", "Ñ", "¿", "¡"]
-    spanish_audit_map = {c: {"count": 0, "pages": set()} for c in spanish_chars}
     
     total_ascii = 0
     total_no_ascii = 0
     first_50_no_ascii = []
     
-    from collections import Counter
-    char_counter = Counter()
-    word_page_map = {}
-
-    for page_num, page in enumerate(doc):
-        # Normalizar Unicode a NFC
-        page_text = unicodedata.normalize('NFC', page.get_text())
-        text_content += page_text
-        
-        # Use finditer to get exact match positions for snippet extraction
-        # Include letters, damages chars, and our 'I' variant natively
-        page_words = re.finditer(r'[A-Za-z■\ufffd]+', page_text)
-        for m in page_words:
-            w = m.group()
-            if len(w) > 1:
-                # Normalize \ufffd to ■ so they group together
-                norm_w = w.replace("\ufffd", "■")
-                if norm_w not in word_page_map:
-                    # Extract ~30 chars around the word for context snippet
-                    start_idx = max(0, m.start() - 30)
-                    end_idx = min(len(page_text), m.end() + 30)
-                    snippet = page_text[start_idx:end_idx].replace('\n', ' ').strip()
-                    word_page_map[norm_w] = {"count": 0, "pages": set(), "snippet": snippet}
-                word_page_map[norm_w]["count"] += 1
-                word_page_map[norm_w]["pages"].add(page_num + 1)
-        
-        for c in page_text:
-            char_counter[c] += 1
-            if c in esperanto_chars:
-                esperanto_audit_map[c]["count"] += 1
-                esperanto_audit_map[c]["pages"].add(page_num + 1)
-            if c in spanish_chars:
-                spanish_audit_map[c]["count"] += 1
-                spanish_audit_map[c]["pages"].add(page_num + 1)
-
     total_chars = len(text_content)
     
     for c in text_content:
-        # Categorize
         if c in esperanto_chars:
             esperanto_count += 1
             unicode_letters += 1
         elif c in damaged_markers:
             damaged_count += 1
             if len(damaged_instances_detailed) < 50:
-                damaged_instances_detailed.append({
-                    "char": c,
-                    "ord": ord(c),
-                    "reason": "Marcador de daño conocido"
-                })
+                damaged_instances_detailed.append({"char": c, "ord": ord(c), "reason": "Marcador de daño conocido"})
         elif c.isspace():
-            if c in ['\n', '\r']:
-                newlines += 1
-            else:
-                spaces += 1
+            if c in ['\n', '\r']: newlines += 1
+            else: spaces += 1
         elif c in string.ascii_letters:
             ascii_letters += 1
         elif c in string.punctuation:
@@ -441,53 +447,25 @@ def analyze_text_quality(filepath: str) -> dict:
             unicode_letters += 1
         elif unicodedata.category(c).startswith('P'):
             punctuation += 1
-        elif unicodedata.category(c) == 'Co': # Uso privado, comúnmente fuentes sin mapeo
+        elif unicodedata.category(c) == 'Co':
             damaged_count += 1
             if len(damaged_instances_detailed) < 50:
-                damaged_instances_detailed.append({
-                    "char": repr(c),
-                    "ord": ord(c),
-                    "reason": "Carácter de uso privado (Co) - Fuente sin mapeo"
-                })
+                damaged_instances_detailed.append({"char": repr(c), "ord": ord(c), "reason": "Uso privado"})
                 
-        # Estricto ASCII vs No-ASCII
-        if ord(c) <= 127:
-            total_ascii += 1
+        if ord(c) <= 127: total_ascii += 1
         else:
             total_no_ascii += 1
             if len(first_50_no_ascii) < 50:
-                try:
-                    uname = unicodedata.name(c)
-                except ValueError:
-                    uname = "UNKNOWN"
-                first_50_no_ascii.append({
-                    "char": repr(c) if c.isspace() or unicodedata.category(c) == 'Co' else c,
-                    "ord": ord(c),
-                    "hex": f"U+{ord(c):04X}",
-                    "name": uname
-                })
+                try: uname = unicodedata.name(c)
+                except ValueError: uname = "UNKNOWN"
+                first_50_no_ascii.append({"char": repr(c) if c.isspace() or unicodedata.category(c) == 'Co' else c, "ord": ord(c), "hex": f"U+{ord(c):04X}", "name": uname})
                 
-    # Detección y análisis de posibles palabras Esperanto perdidas
     missing_esperanto_analysis = []
-    
-    arkitekturo_metrics = {
-        "radiko_resolved": 0,
-        "morfo_resolved": 0,
-        "frekvenco_resolved": 0,
-        "kunteksto_resolved": 0,
-        "gramatiko_resolved": 0,
-        "bilingual_resolved": 0,
-        "vocabulary_table_resolved": 0,
-        "jugxanto_resolved": 0,
-        "unresolved_after_jugxanto": 0,
-        "unresolved_after_bilingual": 0
-    }
+    arkitekturo_metrics = {"radiko_resolved": 0, "morfo_resolved": 0, "frekvenco_resolved": 0, "kunteksto_resolved": 0, "gramatiko_resolved": 0, "bilingual_resolved": 0, "vocabulary_table_resolved": 0, "jugxanto_resolved": 0, "unresolved_after_jugxanto": 0, "unresolved_after_bilingual": 0}
     
     for word, data in word_page_map.items():
         suggestion, confidence, detection_type, amb_candidates = suggest_esperanto_correction(word, snippet=data["snippet"])
         if suggestion or detection_type in ["UNRESOLVED_CORRUPTION", "AMBIGUOUS_CANDIDATES", "NO_VALID_CANDIDATE", "HUNSPELL_AMBIGUOUS_CANDIDATES", "Jugxanto_ManualReview"]:
-            
-            # Increment Arkitekturo Metrics based on layer_used / detection_type
             if detection_type == "Radiko": arkitekturo_metrics["radiko_resolved"] += data["count"]
             elif detection_type == "Morfo": arkitekturo_metrics["morfo_resolved"] += data["count"]
             elif detection_type == "Frekvenco": arkitekturo_metrics["frekvenco_resolved"] += data["count"]
@@ -504,26 +482,14 @@ def analyze_text_quality(filepath: str) -> dict:
 
             unicode_breakdown = ", ".join([f"{c} (U+{ord(c):04X})" for c in suggestion if ord(c) > 127]) if suggestion else ""
             missing_esperanto_analysis.append({
-                "word": word,
-                "suggestion": suggestion,
-                "unicode_breakdown": unicode_breakdown,
-                "detection_type": detection_type,
-                "confidence": confidence,
-                "count": data["count"],
-                "ambiguous_candidates": amb_candidates,
-                "pages": sorted(list(data["pages"])),
-                "snippet": data["snippet"]
+                "word": word, "suggestion": suggestion, "unicode_breakdown": unicode_breakdown,
+                "detection_type": detection_type, "confidence": confidence, "count": data["count"],
+                "ambiguous_candidates": amb_candidates, "pages": sorted(list(data["pages"])), "snippet": data["snippet"]
             })
             
     missing_esperanto_analysis.sort(key=lambda x: x["count"], reverse=True)
     
-    # === GENERATE REPAIR PREVIEW ===
-    repair_preview = {
-        "total_corrections": 0,
-        "by_type": {"X-System": 0, "Diccionario": 0, "Similitud": 0},
-        "paragraphs": []
-    }
-    
+    repair_preview = {"total_corrections": 0, "by_type": {"X-System": 0, "Diccionario": 0, "Similitud": 0}, "paragraphs": []}
     replacement_dict = {}
     for item in missing_esperanto_analysis:
         repair_preview["total_corrections"] += item["count"]
@@ -534,117 +500,62 @@ def analyze_text_quality(filepath: str) -> dict:
     lines = text_content.split('\n')
     preview_count = 0
     for line in lines:
-        if len(line.strip()) < 15:
-            continue
-        
-        has_correction = False
+        if len(line.strip()) < 15: continue
         def replace_match(m):
             w = m.group(0)
-            if w in replacement_dict:
-                return replacement_dict[w]
+            if w in replacement_dict: return replacement_dict[w]
             return w
-            
         corrected_line = re.sub(r'\b[A-Za-z]+\b', replace_match, line)
         if corrected_line != line:
-            repair_preview["paragraphs"].append({
-                "original": line.strip(),
-                "corrected": corrected_line.strip()
-            })
+            repair_preview["paragraphs"].append({"original": line.strip(), "corrected": corrected_line.strip()})
             preview_count += 1
-            if preview_count >= 15: # Limit to 15 examples
-                break
+            if preview_count >= 15: break
     
-    # X-system (mantenemos el contador general por retrocompatibilidad)
     x_system_words = [item["word"] for item in missing_esperanto_analysis if item["confidence"] >= 0.9]
     x_system_count = sum(item["count"] for item in missing_esperanto_analysis if item["confidence"] >= 0.9)
     
     total_words = len(re.findall(r'\b\w+\b', text_content))
-    
     snippets = []
     for m in re.finditer(r'.{0,40}[■\ufffd].{0,40}', text_content):
         snippets.append(m.group(0).replace('\n', ' '))
         if len(snippets) > 10: break
-    
-    doc.close()
     
     words = text_content.split()
     total_words = len(words)
     first_50_words = " ".join(words[:50])
     
     total_words_calc = total_words if total_words > 0 else 1
-    
     error_ratio = (damaged_count + x_system_count) / total_words_calc
     text_validity_score = max(0.0, 100.0 - (error_ratio * 1000))
     unicode_score = 100.0 if damaged_count == 0 else max(0.0, 100.0 - (damaged_count * 2))
     overall_score = (unicode_score + text_validity_score) / 2
     
-    logger.info(f"Text audit completed. Words: {total_words}, Special Chars: {esperanto_count}, Damaged: {damaged_count}")
+    logger.info(f"Text audit completed. Words: {total_words}, Damaged: {damaged_count}")
     
     unicode_inventory = []
     for c, count in char_counter.most_common():
         if ord(c) > 127 or c in damaged_markers:
-            try:
-                uname = unicodedata.name(c)
-            except ValueError:
-                uname = "UNKNOWN OR PRIVATE USE"
-                
-            unicode_inventory.append({
-                "char": repr(c) if c.isspace() or unicodedata.category(c) == 'Co' else c,
-                "ord": ord(c),
-                "hex": f"U+{ord(c):04X}",
-                "name": uname,
-                "count": count
-            })
+            try: uname = unicodedata.name(c)
+            except ValueError: uname = "UNKNOWN OR PRIVATE USE"
+            unicode_inventory.append({"char": repr(c) if c.isspace() or unicodedata.category(c) == 'Co' else c, "ord": ord(c), "hex": f"U+{ord(c):04X}", "name": uname, "count": count})
         
     formatted_esperanto_audit = []
     for c, data in esperanto_audit_map.items():
-        formatted_esperanto_audit.append({
-            "char": c,
-            "count": data["count"],
-            "pages": sorted(list(data["pages"]))
-        })
+        formatted_esperanto_audit.append({"char": c, "count": data["count"], "pages": sorted(list(data["pages"]))})
         
     formatted_spanish_audit = []
     for c, data in spanish_audit_map.items():
-        formatted_spanish_audit.append({
-            "char": c,
-            "count": data["count"],
-            "pages": sorted(list(data["pages"]))
-        })
+        formatted_spanish_audit.append({"char": c, "count": data["count"], "pages": sorted(list(data["pages"]))})
 
     return {
-        "damaged_chars_count": damaged_count,
-        "esperanto_chars_count": esperanto_count,
-        "x_system_count": x_system_count,
-        "text_length": total_chars,
-        "total_words": total_words,
-        "first_50_words": first_50_words,
-        "error_snippets": snippets + x_system_words[:5],
-        "damaged_instances_detailed": damaged_instances_detailed,
-        "unicode_inventory": unicode_inventory,
-        "esperanto_audit": formatted_esperanto_audit,
-        "spanish_audit": formatted_spanish_audit,
-        "missing_esperanto_analysis": missing_esperanto_analysis[:100], # limit top 100
-        "repair_preview": repair_preview,
-        "unicode_debug": {
-            "total_ascii": total_ascii,
-            "total_no_ascii": total_no_ascii,
-            "first_50_no_ascii": first_50_no_ascii
-        },
-        "classification": {
-            "total": total_chars,
-            "ascii_letters": ascii_letters,
-            "unicode_letters": unicode_letters,
-            "spaces": spaces,
-            "newlines": newlines,
-            "punctuation": punctuation,
-            "esperanto_count": esperanto_count,
-            "damaged_count": damaged_count
-        },
-        "valid_chars_count": total_chars - damaged_count,
-        "unicode_score": round(unicode_score, 2),
-        "text_validity_score": round(text_validity_score, 2),
-        "overall_score": round(overall_score, 2),
-        "page_count": page_count,
-        "arkitekturo_metrics": arkitekturo_metrics
+        "damaged_chars_count": damaged_count, "esperanto_chars_count": esperanto_count, "x_system_count": x_system_count,
+        "text_length": total_chars, "total_words": total_words, "first_50_words": first_50_words,
+        "error_snippets": snippets + x_system_words[:5], "damaged_instances_detailed": damaged_instances_detailed,
+        "unicode_inventory": unicode_inventory, "esperanto_audit": formatted_esperanto_audit, "spanish_audit": formatted_spanish_audit,
+        "missing_esperanto_analysis": missing_esperanto_analysis[:100], "repair_preview": repair_preview,
+        "unicode_debug": {"total_ascii": total_ascii, "total_no_ascii": total_no_ascii, "first_50_no_ascii": first_50_no_ascii},
+        "classification": {"total": total_chars, "ascii_letters": ascii_letters, "unicode_letters": unicode_letters, "spaces": spaces, "newlines": newlines, "punctuation": punctuation, "esperanto_count": esperanto_count, "damaged_count": damaged_count},
+        "valid_chars_count": total_chars - damaged_count, "unicode_score": round(unicode_score, 2),
+        "text_validity_score": round(text_validity_score, 2), "overall_score": round(overall_score, 2),
+        "page_count": page_count, "arkitekturo_metrics": arkitekturo_metrics
     }
