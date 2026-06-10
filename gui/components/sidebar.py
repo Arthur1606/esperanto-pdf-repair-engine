@@ -1,56 +1,108 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QSpacerItem, QSizePolicy
+"""
+Sidebar — Esperanto Language Suite
+Collapsible navigation with brand identity.
+"""
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QPushButton, QLabel, QSpacerItem, QSizePolicy
+)
 from PySide6.QtCore import Qt, Signal
 from gui.animations import create_slide_width
+from gui.styles.design_system import TDS
+
 
 class Sidebar(QWidget):
     item_selected = Signal(str)
 
+    ITEMS = [
+        ("dashboard", "Dashboard"),
+        ("library",   "Biblioteca"),
+        ("learning",  "Aprendizaje"),
+        ("history",   "Historial"),
+    ]
+    BOTTOM_ITEMS = [
+        ("settings",  "Configuración"),
+    ]
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.expanded = True
-        self.setFixedWidth(200)
+        self.active_id = "dashboard"
+        self.setFixedWidth(220)
         self.setObjectName("Sidebar")
-        
+
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 20, 10, 20)
-        layout.setSpacing(5)
-        
-        # Toggle btn
-        self.btn_toggle = QPushButton("☰")
+        layout.setContentsMargins(14, 20, 14, 20)
+        layout.setSpacing(4)
+
+        # ── Brand ──────────────────────────────────────
+        self.brand_label = QLabel("ESPERANTO")
+        self.brand_label.setObjectName("SidebarBrand")
+        layout.addWidget(self.brand_label)
+
+        layout.addSpacing(24)
+
+        # ── Toggle ─────────────────────────────────────
+        self.btn_toggle = QPushButton("◀")
         self.btn_toggle.setObjectName("SidebarToggle")
-        self.btn_toggle.setFixedSize(30, 30)
+        self.btn_toggle.setFixedSize(28, 28)
         self.btn_toggle.clicked.connect(self.toggle)
         layout.addWidget(self.btn_toggle, 0, Qt.AlignLeft)
-        
-        layout.addSpacing(20)
-        
-        self.buttons = {}
-        self.add_item("dashboard", "⌘ Mission Control")
-        self.add_item("library", "📚 Biblioteca")
-        self.add_item("learning", "🌱 Aprendizaje")
-        self.add_item("history", "🕒 Historial")
-        
-        layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
-        
-        self.add_item("settings", "⚙ Configuración")
 
-    def add_item(self, id_str, text):
+        layout.addSpacing(12)
+
+        # ── Nav Items ──────────────────────────────────
+        self.buttons = {}
+        for id_str, text in self.ITEMS:
+            self._add_item(id_str, text)
+
+        layout.addSpacerItem(
+            QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
+
+        for id_str, text in self.BOTTOM_ITEMS:
+            self._add_item(id_str, text)
+
+        self._update_active_style()
+
+    def _add_item(self, id_str: str, text: str):
         btn = QPushButton(text)
         btn.setObjectName("SidebarBtn")
-        btn.clicked.connect(lambda: self.item_selected.emit(id_str))
-        self.buttons[id_str] = {"btn": btn, "full_text": text, "icon": text.split(' ')[0]}
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(lambda: self._on_click(id_str))
+        self.buttons[id_str] = {"btn": btn, "full_text": text}
         self.layout().addWidget(btn)
+
+    def _on_click(self, id_str: str):
+        self.active_id = id_str
+        self._update_active_style()
+        self.item_selected.emit(id_str)
+
+    def _update_active_style(self):
+        for key, data in self.buttons.items():
+            if key == self.active_id:
+                data["btn"].setObjectName("SidebarBtnActive")
+            else:
+                data["btn"].setObjectName("SidebarBtn")
+            data["btn"].style().unpolish(data["btn"])
+            data["btn"].style().polish(data["btn"])
 
     def toggle(self):
         self.expanded = not self.expanded
-        start_w = 200 if not self.expanded else 60
-        end_w = 60 if not self.expanded else 200
-        
+        start_w = 220 if not self.expanded else 64
+        end_w = 64 if not self.expanded else 220
+
         if not self.expanded:
+            self.btn_toggle.setText("▶")
+            self.brand_label.hide()
             for d in self.buttons.values():
-                d["btn"].setText(d["icon"])
+                d["btn"].setText("")
         
-        self.anim = create_slide_width(self, start_w, end_w, 200)
+        self.anim = create_slide_width(self, start_w, end_w, TDS.ANIM_NORMAL)
         if self.expanded:
-            self.anim.finished.connect(lambda: [d["btn"].setText(d["full_text"]) for d in self.buttons.values()])
+            def _restore():
+                self.btn_toggle.setText("◀")
+                self.brand_label.show()
+                for d in self.buttons.values():
+                    d["btn"].setText(d["full_text"])
+            self.anim.finished.connect(_restore)
         self.anim.start()

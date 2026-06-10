@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from PySide6.QtWidgets import QApplication
 from gui.main_window import MainWindow
+from gui.styles.theme_generator import generate_stylesheet
 
 def setup_logging():
     log_dir = Path(__file__).parent / "logs"
@@ -33,17 +34,14 @@ def load_config():
 def main():
     setup_logging()
     logger = logging.getLogger("studio.main")
-    logger.info("Iniciando Esperanto Repair Studio...")
+    logger.info("Iniciando Esperanto Language Suite...")
     
     config = load_config()
     
     app = QApplication(sys.argv)
     
-    # Cargar tema
-    theme_path = Path(__file__).parent / "gui" / "styles" / "theme.qss"
-    if theme_path.exists():
-        with open(theme_path, "r", encoding="utf-8") as f:
-            app.setStyleSheet(f.read())
+    # Generate stylesheet from Design System tokens
+    app.setStyleSheet(generate_stylesheet())
     
     window = MainWindow()
     window.show()
