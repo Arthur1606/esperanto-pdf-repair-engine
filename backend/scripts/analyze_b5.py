@@ -6,7 +6,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from language_engine.auditor import analyze_text_quality
 
-files = sorted(glob.glob(os.path.join(os.path.dirname(__file__), '..', 'uploads', 'leccion_*.pdf')))
+files = sorted(glob.glob(os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'leccion_*.pdf')))
 
 print("Extracting 21 MR cases...")
 for f in files:

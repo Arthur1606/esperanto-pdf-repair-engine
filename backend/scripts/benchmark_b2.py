@@ -19,7 +19,7 @@ total_arkitekturo_metrics = {
     "unresolved_after_jugxanto": 0
 }
 
-files = sorted(glob.glob(os.path.join(os.path.dirname(__file__), '..', 'uploads', 'leccion_*.pdf')))
+files = sorted(glob.glob(os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'leccion_*.pdf')))
 print(f"Starting B2 Benchmark on {len(files)} PDFs...")
 
 total_words = 0

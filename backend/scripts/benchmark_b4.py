@@ -20,7 +20,7 @@ total_arkitekturo_metrics = {
     "unresolved_after_bilingual": 0
 }
 
-files = sorted(glob.glob(os.path.join(os.path.dirname(__file__), '..', 'uploads', 'leccion_*.pdf')))
+files = sorted(glob.glob(os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'leccion_*.pdf')))
 print(f"Starting B4 Benchmark on {len(files)} PDFs...")
 
 for filepath in files:
