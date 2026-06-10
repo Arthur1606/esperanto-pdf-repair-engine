@@ -39,19 +39,10 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     background-color: {T.BG_PRIMARY};
 }}
 #SplashTitle {{
-    font-size: {T.FONT_HERO}px;
-    font-weight: 700;
-    color: {T.TEXT_PRIMARY};
-    letter-spacing: -0.5px;
-}}
-#SplashSubtitle {{
-    font-size: {T.FONT_H3}px;
-    font-weight: 400;
-    color: {T.TEXT_TERTIARY};
-}}
-#SplashGold {{
-    color: {T.GOLD};
-    font-weight: 600;
+    font-size: 80px;
+    font-weight: 800;
+    color: #111111;
+    letter-spacing: -2px;
 }}
 #SplashProgress {{
     background-color: {T.BG_TERTIARY};
