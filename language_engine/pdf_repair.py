@@ -2,6 +2,7 @@ import fitz
 import os
 import time
 import io
+import logging
 
 from typing import Tuple, Dict, Any
 
@@ -36,7 +37,7 @@ def repair_pdf(original_pdf_path: str, approved_corrections: dict) -> Tuple[str,
     doc = fitz.open(original_pdf_path)
     
     # Register Noto Sans font
-    font_path = os.path.join(os.path.dirname(__file__), '..', '..', 'NotoSans-Regular.ttf')
+    font_path = os.path.join(os.path.dirname(__file__), '..', 'NotoSans-Regular.ttf')
     has_noto = os.path.exists(font_path)
 
     # Fast lookup from approved dictionary
@@ -57,76 +58,83 @@ def repair_pdf(original_pdf_path: str, approved_corrections: dict) -> Tuple[str,
         else:
             font_to_use = "helv" # Fallback
 
-        # Apply corrections by iterating through words directly
-        for w_info in words_info:
-            wx0, wy0, wx1, wy1, w_text, block_no, line_no, word_no = w_info
-            
-            clean_text = w_text.strip('.,;:!?()"\'-[]{}')
-            
-            # Remove hidden damaged markers if any for matching, or just match exactly
-            # Wait, the frontend sends original_word EXACTLY as it was extracted.
-            if clean_text in correction_map:
-                suggestion = correction_map[clean_text]
-                rect = fitz.Rect(wx0, wy0, wx1, wy1)
-                
+        # Apply corrections using search_for to preserve punctuation and precisely locate words
+        for original, suggestion in correction_map.items():
+            rects = page.search_for(original)
+            for rect in rects:
                 candidates_found += 1
                 executed_replacements += 1
                 
+                # Expand the redaction rect slightly to fully erase any overlapping pixels
+                # but keep the original rect for insertion
+                redact_rect = rect + (-1, -1, 1, 1)
+                
                 # Apply redaction
-                page.add_redact_annot(rect, text="", fill=None)
+                page.add_redact_annot(redact_rect, text="", fill=None)
                 page.apply_redactions(images=0)
                 
+                # Calculate approx_fontsize based on original rect height
                 approx_fontsize = rect.height * 0.8
                 
-                # Experimental toggle
-                use_insert_text = True
+                # Expand rect exclusively for insertion layout to bypass strict PyMuPDF bounds
+                # We give infinite horizontal space and extra downward vertical space (for descenders)
+                fit_rect = fitz.Rect(rect.x0, rect.y0, rect.x1 + 100, rect.y1 + rect.height)
                 
-                if use_insert_text:
-                    insertion_point = fitz.Point(rect.x0, rect.y1 - (rect.height * 0.2))
-                    if has_noto:
-                        page.insert_text(
-                            insertion_point,
-                            suggestion,
-                            fontsize=approx_fontsize,
-                            fontname="noto",
-                            fontfile=font_path,
-                            color=(0, 0, 0)
-                        )
-                    else:
-                        page.insert_text(
-                            insertion_point,
-                            suggestion,
-                            fontsize=approx_fontsize,
-                            fontname="helv",
-                            color=(0, 0, 0)
-                        )
-                    method_used = "text"
-                    insertion_info = f"({insertion_point.x}, {insertion_point.y})"
-                else:
-                    if has_noto:
-                        page.insert_textbox(
-                            rect,
-                            suggestion,
-                            fontsize=approx_fontsize,
-                            fontname="noto",
-                            fontfile=font_path,
-                            color=(0, 0, 0),
-                            align=0
-                        )
-                    else:
-                        page.insert_textbox(
-                            rect,
-                            suggestion,
-                            fontsize=approx_fontsize,
-                            fontname="helv",
-                            color=(0, 0, 0),
-                            align=0
-                        )
-                    method_used = "textbox"
-                    insertion_info = f"rect: {rect}"
+                # Phase 4 & 5: Arhitekto & Rigardanto
+                from language_engine.rigardanto import verify_visual_insertion
+                from language_engine.biblioteko import biblioteko
+                
+                # 1. Redact Original
+                page.add_redact_annot(rect, fill=(1, 1, 1))
+                page.apply_redactions()
+                
+                # 2. Insert with Arhitekto
+                # We expand the rect slightly if needed, but the original rect is standard
+                # We use search_for logic (which we already did to find 'rect')
+                
+                max_retries = 2
+                inserted_successfully = False
+                
+                current_rect = fit_rect
+                for attempt in range(max_retries):
+                    res = page.insert_textbox(
+                        current_rect,
+                        suggestion,
+                        fontname="Roboto-Regular",
+                        fontfile=font_path,
+                        fontsize=approx_fontsize,
+                        color=(0, 0, 0),
+                        align=0
+                    )
                     
+                    if res >= 0:
+                        # 3. Rigardanto Verification
+                        is_valid_visually = verify_visual_insertion(page, current_rect)
+                        if is_valid_visually:
+                            inserted_successfully = True
+                            # FASE 3: Memoro - Record successful correction!
+                            # Assuming a standard high confidence for now since it reached layout engine
+                            biblioteko.record_correction(original, suggestion, 0.90)
+                            break
+                        else:
+                            logging.warning(f"Rigardanto rejected insertion for '{suggestion}'. Retrying with expanded rect...")
+                            # Fallback: Expand rect to give more space
+                            current_rect = fitz.Rect(current_rect.x0, current_rect.y0 - 2, current_rect.x1 + 5, current_rect.y1 + 2)
+                            # We need to re-redact because the failed insertion is still there!
+                            page.add_redact_annot(current_rect, fill=(1, 1, 1))
+                            page.apply_redactions()
+                    else:
+                        # If insert_textbox fails natively (text doesn't fit at all)
+                        current_rect = fitz.Rect(current_rect.x0, current_rect.y0 - 2, current_rect.x1 + 5, current_rect.y1 + 2)
+                        
+                if not inserted_successfully:
+                    logging.error(f"Arhitekto failed to insert '{suggestion}' visually after retries.")
+                
+                method_used = "arhitekto+rigardanto"
+                insertion_info = f"rect: {current_rect} (success={inserted_successfully})"
+                
                 detailed_log.append({
-                    "original": clean_text,
+                    "original": original,
                     "corrected": suggestion,
                     "page": page_num + 1,
                     "original_bbox": [rect.x0, rect.y0, rect.x1, rect.y1],

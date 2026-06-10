@@ -1,11 +1,12 @@
 """
 DocumentCard — Premium editorial card for document jobs.
+Features spatial levitation on hover.
 """
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar,
     QGraphicsDropShadowEffect
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QPoint
 from PySide6.QtGui import QColor, QCursor
 from gui.models import DocumentJob, DocumentSourceType
 from gui.styles.design_system import TDS
@@ -18,10 +19,9 @@ class DocumentCard(QWidget):
         super().__init__(parent)
         self.job = job
         self.setObjectName("DocumentCard")
+        self.setAttribute(Qt.WA_StyledBackground, True)
         self.setFixedHeight(130)
         self.setCursor(QCursor(Qt.PointingHandCursor))
-
-        self._shadow_applied = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(TDS.SPACE_LG, TDS.SPACE_LG, TDS.SPACE_LG, TDS.SPACE_LG)
@@ -69,6 +69,54 @@ class DocumentCard(QWidget):
         self.progress_bar.setValue(job.progress)
         layout.addWidget(self.progress_bar)
 
+        self._shadow_applied = False
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Apply massive, diffuse shadow only once layout is established
+        if not self._shadow_applied:
+            self.shadow = QGraphicsDropShadowEffect(self)
+            self.shadow.setBlurRadius(30)
+            self.shadow.setOffset(0, 6)
+            self.shadow.setColor(QColor(0, 0, 0, 45)) # Premium visible shadow (18% alpha)
+            self.setGraphicsEffect(self.shadow)
+            self._shadow_applied = True
+
+            # Pre-create animations for Levitation (shadow only to prevent layout fight)
+            self._anim_shadow_blur = QPropertyAnimation(self.shadow, b"blurRadius")
+            self._anim_shadow_blur.setDuration(180)
+            self._anim_shadow_blur.setEasingCurve(QEasingCurve.OutCubic)
+
+            self._anim_shadow_offset = QPropertyAnimation(self.shadow, b"yOffset")
+            self._anim_shadow_offset.setDuration(180)
+            self._anim_shadow_offset.setEasingCurve(QEasingCurve.OutCubic)
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        if hasattr(self, 'shadow'):
+            self._anim_shadow_blur.stop()
+            self._anim_shadow_blur.setStartValue(self.shadow.blurRadius())
+            self._anim_shadow_blur.setEndValue(50)
+            self._anim_shadow_blur.start()
+
+            self._anim_shadow_offset.stop()
+            self._anim_shadow_offset.setStartValue(self.shadow.yOffset())
+            self._anim_shadow_offset.setEndValue(14)
+            self._anim_shadow_offset.start()
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        if hasattr(self, 'shadow'):
+            self._anim_shadow_blur.stop()
+            self._anim_shadow_blur.setStartValue(self.shadow.blurRadius())
+            self._anim_shadow_blur.setEndValue(30)
+            self._anim_shadow_blur.start()
+
+            self._anim_shadow_offset.stop()
+            self._anim_shadow_offset.setStartValue(self.shadow.yOffset())
+            self._anim_shadow_offset.setEndValue(6)
+            self._anim_shadow_offset.start()
+
     def _status_text(self) -> str:
         s = self.job.status
         if s == "processing":
@@ -98,16 +146,6 @@ class DocumentCard(QWidget):
         self.status_label.setText(self._status_text())
         self._apply_status_color()
         self.progress_bar.setValue(job.progress)
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        if not self._shadow_applied:
-            shadow = QGraphicsDropShadowEffect(self)
-            shadow.setBlurRadius(20)
-            shadow.setOffset(0, 2)
-            shadow.setColor(QColor(0, 0, 0, 10))
-            self.setGraphicsEffect(shadow)
-            self._shadow_applied = True
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:

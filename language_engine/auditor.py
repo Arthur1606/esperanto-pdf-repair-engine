@@ -12,10 +12,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 HUNSPELL_DICT = None
+HUNSPELL_ES = None
 try:
     HUNSPELL_DICT = Dictionary.from_files(os.path.join(os.path.dirname(__file__), "..", "data", "hunspell", "eo"))
+    HUNSPELL_ES = Dictionary.from_files(os.path.join(os.path.dirname(__file__), "..", "data", "hunspell", "es_ES"))
 except Exception as e:
-    logger.warning(f"Hunspell dictionary not found or failed to load: {e}")
+    logger.warning(f"Failed to load Hunspell dictionary: {e}. 'Morfo' layer will be limited.")
 
 FREQ_CACHE = {}
 try:
@@ -154,10 +156,70 @@ def analyze_pdf_fonts(filepath: str) -> list[dict]:
     logger.info(f"Font audit completed. Found {len(result)} fonts.")
     return result
 
-def suggest_esperanto_correction(word, snippet=""):
-    lower_word = word.lower()
+def suggest_esperanto_correction(word: str, snippet: str = "") -> dict:
+    from language_engine.semantikisto import evaluate_candidate
+    from language_engine.lingvo_detektilo import detect_language
+    from language_engine.x_sistemo import normalize_x_system
     
+    # 1. Normalize X-system
+    normalized_word = normalize_x_system(word)
+    if normalized_word != word:
+        # If it was an X-system word, and now it's valid unicode Esperanto
+        # we can just return it as a high confidence repair
+        if Dictionary.from_files('data/hunspell/eo').lookup(normalized_word):
+            return {"suggestion": normalized_word, "confidence": 0.99, "type": "SUCCESSFUL_REPAIR", "candidates": [normalized_word]}
+            
+    # 2. LingvoDetektilo pre-check
+    # Prevent repairing valid Spanish or Proper names that OCR mangled slightly
+    lang_scores = detect_language(word, snippet)
+    is_explicitly_damaged = "I" in word or "■" in word
+    
+    if not is_explicitly_damaged:
+        if lang_scores["spanish_score"] > 0.8:
+            return {"suggestion": None, "confidence": 0.0, "type": "NO_VALID_CANDIDATE", "candidates": []}
+        if lang_scores["proper_name_score"] > 0.8:
+            return {"suggestion": None, "confidence": 0.0, "type": "NO_VALID_CANDIDATE", "candidates": []}
+    
+    try:
+        lower_word = word.lower()
+        if HUNSPELL_ES and HUNSPELL_ES.lookup(lower_word) and not is_explicitly_damaged:
+            return {"suggestion": None, "confidence": 0.0, "type": "NO_VALID_CANDIDATE", "candidates": []}
+            
+        cands = list(HUNSPELL_DICT.suggest(word)) if HUNSPELL_DICT else []
+        if not cands:
+            return {"suggestion": None, "confidence": 0.0, "type": "NO_VALID_CANDIDATE", "candidates": []}
+            
+        # 3. Semantikisto Evaluation
+        best_cand = None
+        best_score = -1.0
+        
+        for cand in cands:
+            score = evaluate_candidate(word, cand, snippet)
+            if score > best_score:
+                best_score = score
+                best_cand = cand
+                
+        if best_cand and best_score >= 0.85:
+            return {"suggestion": best_cand, "confidence": best_score, "type": "SUCCESSFUL_REPAIR", "candidates": cands}
+        elif best_cand:
+            return {"suggestion": best_cand, "confidence": best_score, "type": "AMBIGUOUS_CANDIDATES", "candidates": cands}
+        else:
+            return {"suggestion": cands[0], "confidence": 0.5, "type": "HUNSPELL_AMBIGUOUS_CANDIDATES", "candidates": cands}
+            
+    except Exception as e:
+        logger.error(f"Error suggesting correction for {word}: {e}")
+        return {"suggestion": None, "confidence": 0.0, "type": "ERROR", "candidates": []}
+
+def legacy_suggest_esperanto_correction(word, snippet=""):
+    damaged_markers = ['■', '\ufffd']
+    if is_valid_esperanto(word) and not any(c in word for c in damaged_markers):
+        return None, 0.0, "VALID", []
+        
+    if HUNSPELL_ES and HUNSPELL_ES.lookup(word) and not any(c in word for c in damaged_markers):
+        return None, 0.0, "VALID_SPANISH", []
+
     # 0. Damaged Character Recovery (X-System like or hardcoded damaged rules)
+    lower_word = word.lower()
     normalized_word = word.replace("\ufffd", "■")
     lower_normalized = normalized_word.lower()
     if "■" in lower_normalized:
@@ -179,8 +241,9 @@ def suggest_esperanto_correction(word, snippet=""):
         for old, new in replacements.items():
             suggestion = suggestion.replace(old, new)
         confidence = 0.95
-        if HUNSPELL_DICT and not HUNSPELL_DICT.lookup(suggestion):
-            confidence = 0.60
+        if not is_valid_esperanto(suggestion):
+            if HUNSPELL_DICT and not HUNSPELL_DICT.lookup(suggestion):
+                confidence = 0.60
         return suggestion, confidence, "X-System", []
 
     # 2. Radiko: Glyph Corruption Recovery (Dictionary exact match)
@@ -190,6 +253,8 @@ def suggest_esperanto_correction(word, snippet=""):
         return suggestion, 0.90, "Radiko", []
 
     # 3. Morphological & Hunspell Recovery (Morfo)
+    target_candidates = []
+    
     if "I" in word and word != "Iam":
         if bool(re.search(r'[a-z]I', word)) or (word.startswith("I") and len(word) > 1 and word[1:].islower()):
             candidates = generate_candidates(word)
@@ -198,11 +263,6 @@ def suggest_esperanto_correction(word, snippet=""):
                 if is_valid_esperanto(cand):
                     valid_candidates.append(cand)
                     
-            if len(valid_candidates) == 1:
-                suggestion = valid_candidates[0]
-                if word.startswith('I') or word[0].isupper(): suggestion = suggestion.capitalize()
-                return suggestion, 0.95, "Morfo", []
-            
             hunspell_candidates = []
             if HUNSPELL_DICT:
                 for cand in candidates:
@@ -210,129 +270,161 @@ def suggest_esperanto_correction(word, snippet=""):
                         hunspell_candidates.append(cand)
             
             target_candidates = hunspell_candidates if len(hunspell_candidates) > 0 else valid_candidates
-            
-            if len(target_candidates) == 1:
-                suggestion = target_candidates[0]
-                if word.startswith('I') or word[0].isupper(): suggestion = suggestion.capitalize()
-                return suggestion, 0.95, "Morfo", []
-            elif len(target_candidates) > 1:
-                # We have multiple candidates. Time for Jugxanto!
+    elif len(word) > 3 and all(ord(c) < 128 for c in word) and not is_valid_esperanto(word):
+        possible_missing = [word + "ŭ", word + "n", "ĉ" + word[1:], "ĝ" + word[1:], "ĥ" + word[1:], "ĵ" + word[1:], "ŝ" + word[1:]]
+        valid_missing = []
+        for cand in possible_missing:
+            if is_valid_esperanto(cand) or (HUNSPELL_DICT and HUNSPELL_DICT.lookup(cand)):
+                valid_missing.append(cand)
+        if valid_missing:
+            target_candidates = valid_missing
+
+    if len(target_candidates) == 1:
+        suggestion = target_candidates[0]
+        if word.startswith('I') or word[0].isupper(): suggestion = suggestion.capitalize()
+        return suggestion, 0.95, "Morfo", []
+    elif len(target_candidates) > 1:
+        # We have multiple candidates. Time for Jugxanto!
                 
-                # Extract context from snippet, preserving markers
-                snippet_tokens = re.sub(r'[^\w\^■]', ' ', snippet.lower()).split()
-                prev2, prev_w, next_w, next2 = None, None, None, None
+        # Extract context from snippet, preserving markers
+        snippet_tokens = re.sub(r'[^\w\^■]', ' ', snippet.lower()).split()
+        prev2, prev_w, next_w, next2 = None, None, None, None
                 
-                try:
-                    # Find our broken word index in snippet (normalized)
-                    norm_word = lower_word.replace("\ufffd", "■")
-                    idx = -1
-                    for i, t in enumerate(snippet_tokens):
-                        if norm_word in t or t in norm_word:
-                            idx = i
-                            break
-                    if idx != -1:
-                        if idx > 0: prev_w = snippet_tokens[idx-1]
-                        if idx > 1: prev2 = snippet_tokens[idx-2]
-                        if idx < len(snippet_tokens)-1: next_w = snippet_tokens[idx+1]
-                        if idx < len(snippet_tokens)-2: next2 = snippet_tokens[idx+2]
-                        # Debug context
-                        if "i" in norm_word:
-                            print(f"DEBUG: word='{norm_word}', snippet='{snippet}', prev='{prev_w}', next='{next_w}'")
-                except Exception:
-                    pass
+        try:
+            # Find our broken word index in snippet (normalized)
+            norm_word = lower_word.replace("\ufffd", "■")
+            idx = -1
+            for i, t in enumerate(snippet_tokens):
+                if norm_word in t or t in norm_word:
+                    idx = i
+                    break
+            if idx != -1:
+                if idx > 0: prev_w = snippet_tokens[idx-1]
+                if idx > 1: prev2 = snippet_tokens[idx-2]
+                if idx < len(snippet_tokens)-1: next_w = snippet_tokens[idx+1]
+                if idx < len(snippet_tokens)-2: next2 = snippet_tokens[idx+2]
+                # Debug context
+                if "i" in norm_word:
+                    print(f"DEBUG: word='{norm_word}', snippet='{snippet}', prev='{prev_w}', next='{next_w}'")
+        except Exception:
+            pass
 
-                def apply_gramatiko_rules(c, p, n):
-                    if c == "ĉi" and (n in ["tiu", "tie", "tio", "ĉi", "ĉia", "ĉies"] or p in ["tiu", "tie", "tio"]): return 100000
-                    if c in ["ŝi", "ĝi", "li"] and n and (n.endswith("is") or n.endswith("as") or n.endswith("os") or n.endswith("us")): return 100000
-                    if c == "ĝi" and n in ["estas", "havas", "povas"]: return 100000
-                    if c in ["ŝin", "ĝin", "lin"] and p and (p.endswith("is") or p.endswith("as") or p.endswith("os") or p.endswith("us") or p.endswith("i")): return 100000
-                    return 0
+        def apply_gramatiko_rules(c, p, n):
+            if c == "ĉi" and (n in ["tiu", "tie", "tio", "ĉi", "ĉia", "ĉies"] or p in ["tiu", "tie", "tio"]): return 100000
+            if c in ["ŝi", "ĝi", "li"] and n and (n.endswith("is") or n.endswith("as") or n.endswith("os") or n.endswith("us")): return 100000
+            if c == "ĝi" and n in ["estas", "havas", "povas"]: return 100000
+            if c in ["ŝin", "ĝin", "lin"] and p and (p.endswith("is") or p.endswith("as") or p.endswith("os") or p.endswith("us") or p.endswith("i")): return 100000
+            return 0
 
-                def apply_gramatiko_bilingual(c, p2, p, n, n2):
-                    def check(words):
-                        for idx, w in enumerate([p, n, p2, n2]):
-                            if w and w in words: return 100000000 / (10 ** idx)
-                        return 0
-                    if c == "li": return check({"él", "el", "yo"})
-                    if c == "ŝi": return check({"ella", "ellas"})
-                    if c == "ĝi": return check({"ello", "eso"})
-                    if c == "ĉi": return check({"este", "esta", "aquí", "esto"})
-                    if c.endswith("n"): return check({"al", "a"}) // 2
-                    return 0
+        def apply_gramatiko_bilingual(c, p2, p, n, n2):
+            def check(words):
+                for idx, w in enumerate([p, n, p2, n2]):
+                    if w and w in words: return 100000000 / (10 ** idx)
+                return 0
+            if c == "li": return check({"él", "el", "yo"})
+            if c == "ŝi": return check({"ella", "ellas"})
+            if c == "ĝi": return check({"ello", "eso"})
+            if c == "ĉi": return check({"este", "esta", "aquí", "esto"})
+            if c.endswith("n"): return check({"al", "a"}) // 2
+            return 0
 
-                def apply_gramatiko_vocab(c, snippet_words):
-                    def is_es_inf(w): return w and len(w)>3 and w[-2:] in ["ar", "er", "ir"]
-                    if c.endswith(("i", "as", "is", "os", "us", "u", "a", "o")):
-                        for w in snippet_words:
-                            if is_es_inf(w): return 100000
+        def apply_gramatiko_vocab(c, snippet_words):
+            def is_es_inf(w): return w and len(w)>3 and w[-2:] in ["ar", "er", "ir"]
+            if c.endswith(("i", "as", "is", "os", "us", "u", "a", "o")):
+                for w in snippet_words:
+                    if is_es_inf(w): return 100000
                     
-                    bilingual_nouns = {"plaĝo": "playa"}
-                    if c in bilingual_nouns:
-                        if bilingual_nouns[c] in snippet_words:
-                            return 100000
+            bilingual_nouns = {"plaĝo": "playa"}
+            if c in bilingual_nouns:
+                if bilingual_nouns[c] in snippet_words:
+                    return 100000
                         
-                    if c in BASIC_ESPERANTO_DICT: return 10000
-                    return 0
+            if c in BASIC_ESPERANTO_DICT: return 10000
+            return 0
 
-                jugxanto_scores = []
-                for c in target_candidates:
-                    c_lower = c.lower()
+        from .biblioteko import biblioteko
+        
+        jugxanto_scores = []
+        for c in target_candidates:
+            c_lower = c.lower()
                     
-                    # Frekvenco: Unigram Frequency
-                    frekvenco_score = FREQ_CACHE.get(c_lower, 0)
+            # Frekvenco: Biblioteko Unigram Frequency
+            frekvenco_score = biblioteko.get_word_frequency(c_lower)
+            # Legacy fallback
+            if frekvenco_score == 0: frekvenco_score = FREQ_CACHE.get(c_lower, 0)
                     
-                    # Kunteksto: Bigrams + Trigrams
-                    kunteksto_score = 0
-                    if prev_w: kunteksto_score += KUNTEKSTO_BIGRAMS.get(f"{prev_w} {c_lower}", 0)
-                    if next_w: kunteksto_score += KUNTEKSTO_BIGRAMS.get(f"{c_lower} {next_w}", 0)
-                    if prev2 and prev_w: kunteksto_score += (KUNTEKSTO_TRIGRAMS.get(f"{prev2} {prev_w} {c_lower}", 0) * 5)
-                    if prev_w and next_w: kunteksto_score += (KUNTEKSTO_TRIGRAMS.get(f"{prev_w} {c_lower} {next_w}", 0) * 5)
-                    if next_w and next2: kunteksto_score += (KUNTEKSTO_TRIGRAMS.get(f"{c_lower} {next_w} {next2}", 0) * 5)
-                    
-                    # Gramatiko: Grammar Rules
-                    gramatiko_score = apply_gramatiko_rules(c_lower, prev_w, next_w)
-                    gb_score = apply_gramatiko_bilingual(c_lower, prev2, prev_w, next_w, next2)
-                    gv_score = apply_gramatiko_vocab(c_lower, re.sub(r'[^\w\s]', '', snippet.lower()).split())
-                    
-                    # Jugxanto Combined
-                    total_score = frekvenco_score + (kunteksto_score * 50) + gramatiko_score + gb_score + gv_score
-                    jugxanto_scores.append((c, total_score, frekvenco_score, kunteksto_score, gramatiko_score, gb_score, gv_score))
+            # Kunteksto: Biblioteko Co-occurrences
+            kunteksto_score = 0
+            if snippet_tokens:
+                for cw in snippet_tokens:
+                    if cw != c_lower:
+                        kunteksto_score += biblioteko.get_co_occurrence(c_lower, cw)
+            
+            # Legacy Bigrams/Trigrams fallback
+            if kunteksto_score == 0:
+                if prev_w: kunteksto_score += KUNTEKSTO_BIGRAMS.get(f"{prev_w} {c_lower}", 0)
+                if next_w: kunteksto_score += KUNTEKSTO_BIGRAMS.get(f"{c_lower} {next_w}", 0)
+                if prev_w and next_w: kunteksto_score += KUNTEKSTO_TRIGRAMS.get(f"{prev_w} {c_lower} {next_w}", 0) * 2
                 
-                jugxanto_scores.sort(key=lambda x: x[1], reverse=True)
-                winner, t_score, n_score, o_score, f_score, gb_score, gv_score = jugxanto_scores[0]
+            # Memoro (Historical evidence)
+            memory_confidence = biblioteko.get_historical_confidence(lower_word, c_lower)
+            
+            # Gramatiko
+            g_rules = apply_gramatiko_rules(c_lower, prev_w, next_w)
+            g_bilingual = apply_gramatiko_bilingual(c_lower, prev2, prev_w, next_w, next2)
+            g_vocab = apply_gramatiko_vocab(c_lower, snippet_tokens)
+            
+            # Memoro adds a massive boost if historical confidence is > 0.85
+            memory_bonus = 1000000 if memory_confidence >= 0.85 else 0
+            
+            total_score = frekvenco_score + (kunteksto_score * 5) + g_rules + g_bilingual + g_vocab + memory_bonus
+            jugxanto_scores.append((c, total_score, frekvenco_score, kunteksto_score, g_rules, g_bilingual, g_vocab, memory_bonus))
                 
-                if word.startswith('I') or word[0].isupper():
-                    winner = winner.capitalize()
+        jugxanto_scores.sort(key=lambda x: x[1], reverse=True)
+        winner, t_score, f_score, k_score, gr_score, gb_score, gv_score, mem_score = jugxanto_scores[0]
+                
+        if word.startswith('I') or word[0].isupper():
+            winner = winner.capitalize()
 
-                # Calculate confidence to avoid bad silent replacements
-                second_score = jugxanto_scores[1][1] if len(jugxanto_scores) > 1 else 0
-                total_t = t_score + second_score
+        # Calculate confidence to avoid bad silent replacements
+        second_score = jugxanto_scores[1][1] if len(jugxanto_scores) > 1 else 0
+        total_t = t_score + second_score
                 
-                confidence = 0.85
-                layer_used = "Frekvenco"
+        confidence = 0.85
+        layer_used = "Frekvenco"
                 
-                if gb_score > 0:
-                    confidence = 0.95
-                    layer_used = "Gramatiko_Bilingual"
-                elif gv_score > 0:
-                    confidence = 0.95
-                    layer_used = "Gramatiko_Vocab"
-                elif f_score > 0:
-                    confidence = 0.95
-                    layer_used = "Gramatiko"
-                elif total_t == 0:
-                    confidence = 0.60
-                    layer_used = "Jugxanto_ManualReview"
-                elif t_score / total_t < 0.85:
-                    confidence = 0.60
-                    layer_used = "Jugxanto_ManualReview"
-                else:
-                    if o_score > 0: layer_used = "Kunteksto"
-                    else: layer_used = "Frekvenco"
+        if mem_score > 0:
+            confidence = 0.99
+            layer_used = "Memoro"
+        elif gb_score > 0:
+            confidence = 0.95
+            layer_used = "Gramatiko_Bilingual"
+        elif gv_score > 0:
+            confidence = 0.95
+            layer_used = "Gramatiko_Vocab"
+        elif gr_score > 0:
+            confidence = 0.95
+            layer_used = "Gramatiko"
+        elif total_t == 0:
+            confidence = 0.60
+            layer_used = "Jugxanto_ManualReview"
+        elif t_score / total_t < 0.85:
+            confidence = 0.60
+            layer_used = "Jugxanto_ManualReview"
+        else:
+            if k_score > 0: layer_used = "Kunteksto"
+            else: layer_used = "Frekvenco"
                 
-                return winner, confidence, layer_used, target_candidates
-            else:
-                return None, 0.0, "NO_VALID_CANDIDATE", []
+        detailed_cands = [
+            {
+                "candidate": s[0], "total_score": s[1], "frekvenco_freq": s[2],
+                "kunteksto_context": s[3], "gramatiko_rules": s[4] + s[5] + s[6],
+                "memoro_score": s[7]
+            } for s in jugxanto_scores
+        ]
+        return winner, confidence, layer_used, detailed_cands
+    else:
+        pass # Fall through to legacy similarity
 
     # 5. Similarity (Legacy)
     if len(word) > 3 and all(ord(c) < 128 for c in word):
@@ -343,9 +435,10 @@ def suggest_esperanto_correction(word, snippet=""):
                 if word[0].isupper(): suggestion = suggestion.capitalize()
                 return suggestion, 0.70, "Similitud", []
                 
-    return None, 0.0, None, []
-
-
+    if not any(c in word for c in damaged_markers):
+        return None, 0.0, "UNRECOGNIZED_WORD", []
+        
+    return None, 0.0, "NO_VALID_CANDIDATE", []
 from collections import Counter
 
 def _populate_maps(page_text, page_num_1_indexed, word_page_map, char_counter, esperanto_audit_map, spanish_audit_map):
@@ -552,7 +645,7 @@ def _analyze_extracted_data(text_content, word_page_map, char_counter, esperanto
         "text_length": total_chars, "total_words": total_words, "first_50_words": first_50_words,
         "error_snippets": snippets + x_system_words[:5], "damaged_instances_detailed": damaged_instances_detailed,
         "unicode_inventory": unicode_inventory, "esperanto_audit": formatted_esperanto_audit, "spanish_audit": formatted_spanish_audit,
-        "missing_esperanto_analysis": missing_esperanto_analysis[:100], "repair_preview": repair_preview,
+        "missing_esperanto_analysis": missing_esperanto_analysis, "repair_preview": repair_preview,
         "unicode_debug": {"total_ascii": total_ascii, "total_no_ascii": total_no_ascii, "first_50_no_ascii": first_50_no_ascii},
         "classification": {"total": total_chars, "ascii_letters": ascii_letters, "unicode_letters": unicode_letters, "spaces": spaces, "newlines": newlines, "punctuation": punctuation, "esperanto_count": esperanto_count, "damaged_count": damaged_count},
         "valid_chars_count": total_chars - damaged_count, "unicode_score": round(unicode_score, 2),

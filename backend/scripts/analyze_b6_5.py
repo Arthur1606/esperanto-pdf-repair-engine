@@ -15,7 +15,7 @@ for f in files:
     try:
         res = analyze_text_quality(f)
         for item in res.get("missing_esperanto_analysis", []):
-            if item["detection_type"] == "Jugxanto_ManualReview":
+            if item["confidence"] < 0.85 or item["detection_type"] == "Jugxanto_ManualReview":
                 for _ in range(item["count"]):
                     all_manual_reviews.append({
                         "file": os.path.basename(f),

@@ -18,7 +18,7 @@ class TDS:
     BG_SECONDARY = "#F5F5F7"        # Apple warm gray
     BG_TERTIARY = "#E8E8ED"         # Subtle dividers
     BG_CARD = "#FFFFFF"             # Cards on gray bg
-    BG_SIDEBAR = "#F5F5F7"
+    BG_SIDEBAR = "#0B0B0C"          # Rich almost-black sidebar
 
     TEXT_PRIMARY = "#1D1D1F"        # Apple near-black
     TEXT_SECONDARY = "#6E6E73"      # Apple secondary
@@ -64,6 +64,7 @@ class TDS:
 
     # ── Typography (sizes in px) ──────────────────────────
     FONT_FAMILY = '-apple-system, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif'
+    FONT_FAMILY_SERIF = "Georgia, 'Times New Roman', serif"
     FONT_HERO = 34
     FONT_H1 = 28
     FONT_H2 = 22

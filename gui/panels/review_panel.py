@@ -25,11 +25,44 @@ class ReviewPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("ReviewPanel")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        
+        # Spatial Depth for floating panel (suspended glass sheet)
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect
+        self.shadow = QGraphicsDropShadowEffect(self)
+        self.shadow.setBlurRadius(85) # Massive blur for suspension depth
+        self.shadow.setOffset(0, 18)  # High vertical offset for float
+        from PySide6.QtGui import QColor
+        self.shadow.setColor(QColor(0, 0, 0, 40)) # Soft dark projection
+        self.setGraphicsEffect(self.shadow)
+        
+        # Transparent background for the widget itself, the container has glassmorphism
+        self.setStyleSheet(f"""
+            #ReviewPanel {{
+                background-color: transparent;
+            }}
+            #ReviewContainer {{
+                background-color: rgba(255, 255, 255, 0.92);
+                border: 1px solid rgba(255, 255, 255, 0.6);
+                border-radius: {TDS.RADIUS_LG}px;
+            }}
+        """)
+
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        
+        # Inner container for the actual panel to allow shadow bleeding
+        container = QWidget()
+        container.setObjectName("ReviewContainer")
+        layout = QVBoxLayout(container)
+        main_layout.addWidget(container)
+
         self.job = None
         self.current_idx = 0
         self.items = []
 
-        layout = QVBoxLayout(self)
         layout.setContentsMargins(
             TDS.SPACE_XXL + 20, TDS.SPACE_XXL, TDS.SPACE_XXL + 20, TDS.SPACE_XL
         )

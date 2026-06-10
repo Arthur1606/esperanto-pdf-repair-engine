@@ -39,6 +39,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     background-color: {T.BG_PRIMARY};
 }}
 #SplashTitle {{
+    font-family: {T.FONT_FAMILY_SERIF};
     font-size: 80px;
     font-weight: 800;
     color: #111111;
@@ -57,33 +58,48 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
 /* ── Sidebar ────────────────────────────────────────── */
 #Sidebar {{
     background-color: {T.BG_SIDEBAR};
-    border-right: 1px solid {T.BORDER_COLOR};
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
 }}
 #SidebarBrand {{
-    font-size: {T.FONT_CAPTION}px;
-    font-weight: 600;
-    color: {T.TEXT_SECONDARY};
-    letter-spacing: 0.5px;
+    font-family: {T.FONT_FAMILY_SERIF};
+    font-size: {T.FONT_H3}px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: 2.0px;
+}}
+#SidebarSearch {{
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #AEAEB2;
+    border-radius: 6px;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: {T.FONT_BODY - 1}px;
+}}
+#SidebarSearch:hover {{
+    background-color: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #FFFFFF;
 }}
 #SidebarBtn {{
     text-align: left;
     padding: 10px 14px;
     background-color: transparent;
-    color: {T.TEXT_SECONDARY};
+    color: #AEAEB2;
     border: none;
     border-radius: {T.RADIUS_SM}px;
     font-size: {T.FONT_BODY}px;
     font-weight: 500;
 }}
 #SidebarBtn:hover {{
-    background-color: rgba(0, 0, 0, 0.04);
-    color: {T.TEXT_PRIMARY};
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
 }}
 #SidebarBtnActive {{
     text-align: left;
     padding: 10px 14px;
-    background-color: rgba(0, 0, 0, 0.06);
-    color: {T.TEXT_PRIMARY};
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #FFFFFF;
     border: none;
     border-radius: {T.RADIUS_SM}px;
     font-size: {T.FONT_BODY}px;
@@ -92,13 +108,37 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
 #SidebarToggle {{
     background-color: transparent;
     border: none;
-    color: {T.TEXT_SECONDARY};
+    color: #AEAEB2;
     font-size: 18px;
     border-radius: 6px;
     padding: 4px;
 }}
 #SidebarToggle:hover {{
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+}}
+#SidebarProfile {{
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: {T.RADIUS_MD}px;
+    padding: 10px;
+    margin-top: 10px;
+}}
+#SidebarAvatar {{
+    background-color: {T.GOLD};
+    color: #FFFFFF;
+    border-radius: 16px;
+    font-weight: bold;
+    font-size: {T.FONT_BODY}px;
+}}
+#SidebarUsername {{
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: {T.FONT_BODY - 1}px;
+}}
+#SidebarUserRole {{
+    color: #8E8E93;
+    font-size: {T.FONT_SMALL}px;
 }}
 
 /* ── Hero Section ───────────────────────────────────── */
@@ -109,6 +149,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     padding: {T.SPACE_XL}px;
 }}
 #HeroTitle {{
+    font-family: {T.FONT_FAMILY_SERIF};
     font-size: {T.FONT_H1}px;
     font-weight: 700;
     color: {T.TEXT_PRIMARY};
@@ -127,11 +168,11 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
 #MetricCard {{
     background-color: {T.BG_PRIMARY};
     border-radius: {T.RADIUS_MD}px;
-    border: 1px solid {T.BORDER_COLOR};
+    border: none;
     padding: {T.SPACE_LG}px;
 }}
 #MetricCard:hover {{
-    border: 1px solid {T.GOLD_BORDER};
+    background-color: {T.BG_PRIMARY};
 }}
 #MetricLabel {{
     color: {T.TEXT_SECONDARY};
@@ -155,10 +196,10 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
 #DocumentCard {{
     background-color: {T.BG_PRIMARY};
     border-radius: {T.RADIUS_MD}px;
-    border: 1px solid {T.BORDER_COLOR};
+    border: none;
 }}
 #DocumentCard:hover {{
-    border: 1px solid {T.GOLD_BORDER};
+    border: none;
 }}
 #CardTitle {{
     font-size: {T.FONT_BODY}px;
@@ -181,7 +222,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
 
 /* ── Drop Area ──────────────────────────────────────── */
 #DropArea {{
-    border: 2px dashed {T.BORDER_COLOR};
+    border: 2px dashed rgba(0, 0, 0, 0.05);
     border-radius: {T.RADIUS_MD}px;
     background-color: {T.BG_PRIMARY};
     color: {T.TEXT_TERTIARY};
@@ -197,21 +238,21 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
 /* ── Text Input ─────────────────────────────────────── */
 #TextInput {{
     background-color: {T.BG_PRIMARY};
-    border: 1px solid {T.BORDER_COLOR};
+    border: none;
     border-radius: {T.RADIUS_MD}px;
     padding: {T.SPACE_MD}px;
     color: {T.TEXT_PRIMARY};
     font-size: {T.FONT_BODY}px;
 }}
 #TextInput:focus {{
-    border-color: {T.GOLD};
+    background-color: {T.BG_PRIMARY};
 }}
 
 /* ── Review Panel ───────────────────────────────────── */
 #ReviewCard {{
     background-color: {T.BG_PRIMARY};
     border-radius: {T.RADIUS_XL}px;
-    border: 1px solid {T.BORDER_COLOR};
+    border: none;
     padding: {T.SPACE_XXL}px;
 }}
 #ReviewContext {{
@@ -220,10 +261,11 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     line-height: 1.6;
 }}
 #ReviewTarget {{
-    font-size: 42px;
+    font-family: {T.FONT_FAMILY_SERIF};
+    font-size: 46px;
     font-weight: 800;
     color: {T.TEXT_PRIMARY};
-    letter-spacing: -0.5px;
+    letter-spacing: -2px;
 }}
 #ExplanationBox {{
     background-color: {T.GOLD_SUBTLE};

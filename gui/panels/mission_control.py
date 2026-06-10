@@ -3,9 +3,10 @@ Mission Control Panel — Editorial Dashboard
 """
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
-    QGridLayout, QPushButton, QTextEdit
+    QGridLayout, QPushButton, QTextEdit, QGraphicsDropShadowEffect
 )
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from gui.components.document_card import DocumentCard
 from gui.models import DocumentJob, DocumentSourceType
 from gui.styles.design_system import TDS
@@ -20,30 +21,32 @@ class MissionControlPanel(QWidget):
         self.main_window = main_window
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(
-            TDS.SPACE_XXL, TDS.SPACE_XL, TDS.SPACE_XXL, TDS.SPACE_XL
+        layout.setContentsMargins(48, 48, 48, 48)
+        layout.setSpacing(32)
+
+        # ── Editorial Header (Minimalist running signature) ──
+        header_bar = QHBoxLayout()
+        
+        brand_sig = QLabel("ESPERANTO LANGUAGE SUITE")
+        brand_sig.setStyleSheet(
+            f"font-size: 10px; "
+            f"font-weight: 700; "
+            f"color: {TDS.TEXT_SECONDARY}; "
+            f"letter-spacing: 3px;"
         )
-        layout.setSpacing(TDS.SPACE_LG)
-
-        # ── Hero Section ───────────────────────────────
-        hero = QWidget()
-        hero.setObjectName("HeroSection")
-        hero_layout = QVBoxLayout(hero)
-        hero_layout.setSpacing(8)
-
-        title = QLabel("Esperanto Language Suite")
-        title.setObjectName("HeroTitle")
-
-        subtitle = QLabel(
-            f'Tu espacio de exploración lingüística — '
-            f'<span style="color: {TDS.GOLD}; font-weight: 600;">powered by TEKIRA</span>'
+        
+        tagline = QLabel("powered by TEKIRA")
+        tagline.setStyleSheet(
+            f"font-size: 10px; "
+            f"font-weight: 500; "
+            f"color: {TDS.GOLD}; "
+            f"letter-spacing: 1px;"
         )
-        subtitle.setObjectName("HeroSubtitle")
-        subtitle.setTextFormat(Qt.RichText)
-
-        hero_layout.addWidget(title)
-        hero_layout.addWidget(subtitle)
-        layout.addWidget(hero)
+        
+        header_bar.addWidget(brand_sig)
+        header_bar.addStretch()
+        header_bar.addWidget(tagline)
+        layout.addLayout(header_bar)
 
         # ── Metrics Row ────────────────────────────────
         metrics_row = QHBoxLayout()
@@ -65,10 +68,24 @@ class MissionControlPanel(QWidget):
         self.drop_area.setAlignment(Qt.AlignCenter)
         self.drop_area.setMinimumHeight(120)
 
+        # Physical shadow for Drop Area
+        da_shadow = QGraphicsDropShadowEffect(self.drop_area)
+        da_shadow.setBlurRadius(25)
+        da_shadow.setOffset(0, 5)
+        da_shadow.setColor(QColor(0, 0, 0, 20))
+        self.drop_area.setGraphicsEffect(da_shadow)
+
         self.text_input = QTextEdit()
         self.text_input.setPlaceholderText("O pega texto aquí...")
         self.text_input.setObjectName("TextInput")
         self.text_input.setMinimumHeight(120)
+
+        # Physical shadow for Text Input
+        ti_shadow = QGraphicsDropShadowEffect(self.text_input)
+        ti_shadow.setBlurRadius(25)
+        ti_shadow.setOffset(0, 5)
+        ti_shadow.setColor(QColor(0, 0, 0, 20))
+        self.text_input.setGraphicsEffect(ti_shadow)
 
         input_layout.addWidget(self.drop_area, 1)
         input_layout.addWidget(self.text_input, 1)
@@ -96,7 +113,8 @@ class MissionControlPanel(QWidget):
         self.cards_container = QWidget()
         self.cards_container.setStyleSheet("background: transparent;")
         self.cards_layout = QGridLayout(self.cards_container)
-        self.cards_layout.setSpacing(TDS.SPACE_MD)
+        self.cards_layout.setSpacing(TDS.SPACE_LG)
+        self.cards_layout.setContentsMargins(16, 16, 16, 16)
         scroll.setWidget(self.cards_container)
 
         # Empty state
@@ -110,6 +128,15 @@ class MissionControlPanel(QWidget):
     def _create_metric(self, title: str, value: str, desc: str) -> QWidget:
         w = QWidget()
         w.setObjectName("MetricCard")
+        w.setAttribute(Qt.WA_StyledBackground, True)
+        
+        # Physical shadow for Metric Cards
+        shadow = QGraphicsDropShadowEffect(w)
+        shadow.setBlurRadius(30)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(0, 0, 0, 15))
+        w.setGraphicsEffect(shadow)
+
         l = QVBoxLayout(w)
         l.setSpacing(4)
 
