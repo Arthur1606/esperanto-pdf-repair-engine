@@ -1,10 +1,12 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QGridLayout, QPushButton, QTextEdit
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from gui.components.document_card import DocumentCard
 from gui.models import DocumentJob, DocumentSourceType
 import uuid
 
 class MissionControlPanel(QWidget):
+    job_selected = Signal(object)
+
     def __init__(self, main_window, parent=None):
         super().__init__(parent)
         self.main_window = main_window
@@ -12,26 +14,24 @@ class MissionControlPanel(QWidget):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
         
-        # Hero Section
         hero = QWidget()
         hero.setObjectName("HeroSection")
         hero_layout = QVBoxLayout(hero)
         title = QLabel("TEKIRA | Centro de Operaciones")
         title.setStyleSheet("font-size: 28px; font-weight: 800; color: #ffffff;")
-        subtitle = QLabel("Motor lingüístico en espera. 0 Documentos procesados hoy.")
+        subtitle = QLabel("Motor lingüístico en espera.")
         subtitle.setStyleSheet("font-size: 14px; color: #858585;")
         hero_layout.addWidget(title)
         hero_layout.addWidget(subtitle)
         layout.addWidget(hero)
         
-        # Metrics Row
         metrics = QHBoxLayout()
-        metrics.addWidget(self._create_metric("Automatización", "0%", "Tasa TEKIRA"))
-        metrics.addWidget(self._create_metric("Por Revisar", "0", "Ambigüedades"))
-        metrics.addWidget(self._create_metric("Tiempo Ahorrado", "0h 0m", "Frente a edición manual"))
+        self.m_auto = self._create_metric("Automatización", "0%", "Tasa TEKIRA")
+        self.m_rev = self._create_metric("Por Revisar", "0", "Ambigüedades")
+        metrics.addWidget(self.m_auto)
+        metrics.addWidget(self.m_rev)
         layout.addLayout(metrics)
         
-        # Input Area (Drag Drop + Text)
         input_layout = QHBoxLayout()
         self.drop_area = QLabel("Arrastra Documentos Aquí\n(PDF, TXT)")
         self.drop_area.setObjectName("DropArea")
@@ -50,7 +50,6 @@ class MissionControlPanel(QWidget):
         btn.clicked.connect(self._process_clipboard)
         layout.addWidget(btn, 0, Qt.AlignRight)
         
-        # Cards Area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.NoFrame)
@@ -71,12 +70,14 @@ class MissionControlPanel(QWidget):
         lt = QLabel(title)
         lt.setStyleSheet("color: #858585; font-size: 12px; font-weight: 600;")
         lv = QLabel(value)
+        lv.setObjectName("MetricValue")
         lv.setStyleSheet("color: #ffffff; font-size: 24px; font-weight: 800;")
         ld = QLabel(desc)
         ld.setStyleSheet("color: #5E5CE6; font-size: 11px;")
         l.addWidget(lt)
         l.addWidget(lv)
         l.addWidget(ld)
+        w.val_label = lv
         return w
 
     def _process_clipboard(self):
@@ -87,16 +88,21 @@ class MissionControlPanel(QWidget):
             self.text_input.clear()
 
     def update_jobs(self, jobs):
-        # Clear layout
         while self.cards_layout.count():
             item = self.cards_layout.takeAt(0)
             if item.widget(): item.widget().deleteLater()
             
         row, col = 0, 0
-        for job in reversed(jobs): # Show newest first
+        total_rev = 0
+        for job in reversed(jobs):
             card = DocumentCard(job)
+            card.clicked.connect(self.job_selected.emit)
             self.cards_layout.addWidget(card, row, col)
+            if job.result:
+                total_rev += job.result.manual_reviews_required
             col += 1
             if col > 2:
                 col = 0
                 row += 1
+                
+        self.m_rev.val_label.setText(str(total_rev))

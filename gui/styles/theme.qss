@@ -7,96 +7,35 @@ QWidget {
 }
 
 /* Sidebar */
-#Sidebar {
-    background-color: #161616;
-    border-right: 1px solid #2a2a2a;
-}
-#SidebarBtn {
-    text-align: left;
-    padding: 10px 15px;
-    background-color: transparent;
-    color: #a0a0a0;
-    border: none;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-}
-#SidebarBtn:hover {
-    background-color: #252525;
-    color: #ffffff;
-}
-#SidebarToggle {
-    background-color: transparent;
-    border: none;
-    color: #ffffff;
-    font-size: 16px;
-}
-#SidebarToggle:hover {
-    background-color: #252525;
-    border-radius: 4px;
-}
+#Sidebar { background-color: #161616; border-right: 1px solid #2a2a2a; }
+#SidebarBtn { text-align: left; padding: 10px 15px; background-color: transparent; color: #a0a0a0; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; }
+#SidebarBtn:hover { background-color: #252525; color: #ffffff; }
+#SidebarToggle { background-color: transparent; border: none; color: #ffffff; font-size: 16px; }
+#SidebarToggle:hover { background-color: #252525; border-radius: 4px; }
 
 /* Mission Control */
-#HeroSection {
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e);
-    border-radius: 12px;
-    padding: 20px;
-    border: 1px solid #2a2a2f;
-}
-#MetricCard {
-    background-color: #1a1a1a;
-    border-radius: 10px;
-    border: 1px solid #2a2a2a;
-    padding: 15px;
-}
-#MetricCard:hover {
-    border: 1px solid #5E5CE6;
-}
+#HeroSection { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e); border-radius: 12px; padding: 20px; border: 1px solid #2a2a2f; }
+#MetricCard { background-color: #1a1a1a; border-radius: 10px; border: 1px solid #2a2a2a; padding: 15px; }
+#MetricCard:hover { border: 1px solid #5E5CE6; }
 
 /* Cards */
-#DocumentCard {
-    background-color: #1a1a1a;
-    border-radius: 10px;
-    border: 1px solid #2a2a2a;
-}
-#DocumentCard:hover {
-    background-color: #1e1e1e;
-    border: 1px solid #3a3a3a;
-}
+#DocumentCard { background-color: #1a1a1a; border-radius: 10px; border: 1px solid #2a2a2a; }
+#DocumentCard:hover { background-color: #1e1e1e; border: 1px solid #5E5CE6; }
 
 /* Inputs */
-#DropArea {
-    border: 2px dashed #333333;
-    border-radius: 10px;
-    background-color: #111111;
-    color: #666666;
-    padding: 30px;
-    font-size: 13px;
-}
-#DropArea:hover {
-    border-color: #5E5CE6;
-    color: #5E5CE6;
-}
-#TextInput {
-    background-color: #111111;
-    border: 1px solid #333333;
-    border-radius: 10px;
-    padding: 15px;
-    color: #ffffff;
-}
-#TextInput:focus {
-    border-color: #5E5CE6;
-}
+#DropArea { border: 2px dashed #333333; border-radius: 10px; background-color: #111111; color: #666666; padding: 30px; font-size: 13px; }
+#DropArea:hover { border-color: #5E5CE6; color: #5E5CE6; }
+#TextInput { background-color: #111111; border: 1px solid #333333; border-radius: 10px; padding: 15px; color: #ffffff; }
+#TextInput:focus { border-color: #5E5CE6; }
+
+/* Review Panel */
+#ReviewCard { background-color: #161616; border-radius: 16px; border: 1px solid #2a2a2a; padding: 40px; }
+#ExplanationBox { background-color: rgba(94, 92, 230, 0.1); border-left: 4px solid #5E5CE6; border-radius: 4px; padding: 15px; }
 
 /* Buttons */
-#PrimaryBtn {
-    background-color: #5E5CE6;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 10px 20px;
-    font-weight: 600;
-}
-#PrimaryBtn:hover {
-    background-color: #6a68ff;
-}
+#PrimaryBtn { background-color: #5E5CE6; color: white; border: none; border-radius: 6px; padding: 10px 20px; font-weight: 600; }
+#PrimaryBtn:hover { background-color: #6a68ff; }
+#SecondaryBtn { background-color: transparent; color: #a0a0a0; border: 1px solid #333; border-radius: 6px; padding: 10px 20px; }
+#SecondaryBtn:hover { background-color: #252525; color: #ffffff; border-color: #555; }
+#CandidateBtn { background-color: #1a1a1a; color: #ffffff; border: 1px solid #333; border-radius: 8px; padding: 15px; font-size: 16px; font-weight: 600; }
+#CandidateBtn:hover { background-color: #252525; border-color: #5E5CE6; }

@@ -1,19 +1,21 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor, QCursor
 from gui.models import DocumentJob, DocumentSourceType
 
 class DocumentCard(QWidget):
+    clicked = Signal(object)  # Emits DocumentJob
+
     def __init__(self, job: DocumentJob, parent=None):
         super().__init__(parent)
         self.job = job
         self.setObjectName("DocumentCard")
         self.setFixedHeight(120)
+        self.setCursor(QCursor(Qt.PointingHandCursor))
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         
-        # Header
         h_layout = QHBoxLayout()
         icon = "📄" if job.source_type == DocumentSourceType.PDF else "📝"
         title = QLabel(f"{icon} {job.filepath.split('/')[-1] if job.filepath else 'Portapapeles'}")
@@ -27,7 +29,6 @@ class DocumentCard(QWidget):
         h_layout.addWidget(self.status)
         layout.addLayout(h_layout)
         
-        # Progress Bar Placeholder
         self.progress_bg = QWidget()
         self.progress_bg.setFixedHeight(4)
         self.progress_bg.setStyleSheet("background-color: #333; border-radius: 2px;")
@@ -37,11 +38,15 @@ class DocumentCard(QWidget):
         
     def get_status_text(self):
         if self.job.status == "processing": return "⏳ Procesando..."
-        if self.job.status == "completed": return "✅ Listo"
+        if self.job.status == "completed": return f"✅ Listo ({self.job.result.manual_reviews_required if self.job.result else 0} Rev)"
         if self.job.status == "error": return "❌ Error"
         return "Pendiente"
         
     def update_job(self, job: DocumentJob):
         self.job = job
         self.status.setText(self.get_status_text())
-        # TODO: Animar ancho de progress bar interno
+        
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self.job)
+        super().mousePressEvent(event)
