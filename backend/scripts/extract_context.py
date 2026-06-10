@@ -1,10 +1,11 @@
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 import glob
-from app.services.auditor import analyze_text_quality
-from app.core.database import SessionLocal
+from language_engine.auditor import analyze_text_quality
+from language_engine.database import SessionLocal
 import json
 
 print("| Palabra Original | Candidatos | Confianza (Simulada) | Contexto | Archivo |")

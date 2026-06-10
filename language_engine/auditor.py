@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 HUNSPELL_DICT = None
 try:
-    HUNSPELL_DICT = Dictionary.from_files(os.path.join(os.path.dirname(__file__), "..", "..", "data", "hunspell", "eo"))
+    HUNSPELL_DICT = Dictionary.from_files(os.path.join(os.path.dirname(__file__), "..", "backend", "data", "hunspell", "eo"))
 except Exception as e:
     logger.warning(f"Hunspell dictionary not found or failed to load: {e}")
 
 FREQ_CACHE = {}
 try:
-    freq_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "frequency_cache.json")
+    freq_path = os.path.join(os.path.dirname(__file__), "..", "backend", "data", "frequency_cache.json")
     if os.path.exists(freq_path):
         with open(freq_path, "r", encoding="utf-8") as f:
             FREQ_CACHE = json.load(f)
@@ -29,7 +29,7 @@ except Exception as e:
 KUNTEKSTO_BIGRAMS = {}
 KUNTEKSTO_TRIGRAMS = {}
 try:
-    context_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "context_frequency.json")
+    context_path = os.path.join(os.path.dirname(__file__), "..", "backend", "data", "context_frequency.json")
     if os.path.exists(context_path):
         with open(context_path, "r", encoding="utf-8") as f:
             dataset = json.load(f)
@@ -58,7 +58,7 @@ for w in BASIC_ESPERANTO_DICT:
 import os
 import itertools
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "backend", "data")
 DICT_PATH = os.path.join(DATA_DIR, "esperanto_roots.txt")
 
 EXPANDED_ROOTS = set()

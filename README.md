@@ -1,4 +1,4 @@
-# Esperanto Language Engine (PDF Repair Module)
+# Tekira: Esperanto Language Engine
 
 Un motor de procesamiento del lenguaje natural **100% offline (air-gapped)** y determinista, enfocado actualmente en su módulo primario: reparar PDFs de Esperanto que sufren de corrupción en la codificación de caracteres.
 
@@ -19,8 +19,8 @@ El motor cuenta con un pipeline analítico que no depende de LLMs ni APIs extern
 ### El Problema
 Al generar o imprimir documentos PDF antiguos, los caracteres especiales del Esperanto con circunflejo (ĉ, ĝ, ĥ, ĵ, ŝ, ŭ) suelen perder su codificación. Son reemplazados por glifos corruptos, caracteres de otros idiomas, o transliteraciones híbridas (X-System/H-System). Esto destruye la indexación y la capacidad de búsqueda (Copy & Paste / CTRL+F).
 
-### La Solución: Language Engine
-Más que un simple parcheador de PDFs, este proyecto es un **Language Engine** especializado en morfología, n-gramas contextuales y reglas bilingües del Esperanto. Su objetivo es restaurar de forma masiva bibliotecas digitales sin comprometer la privacidad de los documentos.
+### La Solución: Tekira (Language Engine)
+Más que un simple parcheador de PDFs, este proyecto es impulsado por **Tekira**, un **Language Engine** especializado en morfología, n-gramas contextuales y reglas bilingües del Esperanto. Su objetivo es restaurar de forma masiva bibliotecas digitales sin comprometer la privacidad de los documentos.
 
 ---
 
@@ -34,9 +34,9 @@ Más que un simple parcheador de PDFs, este proyecto es un **Language Engine** e
 
 ---
 
-## 🏗 Arquitectura (Arkitekturo Heuristic Cascade)
+## 🏗 Arquitectura (Tekira Heuristic Cascade)
 
-El sistema procesa el texto a través de un esquema en cascada heurístico (7 Capas) antes de reinyectarlo en el formato final:
+Tekira procesa el texto a través de un esquema en cascada heurístico (7 Capas) antes de que la aplicación lo reinyecte en el formato final:
 
 | Capa | Nombre | Función Principal |
 | :---: | :--- | :--- |

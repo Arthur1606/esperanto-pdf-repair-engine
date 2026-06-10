@@ -1,8 +1,11 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.core.database import engine, Base, get_db
+from language_engine.database import engine, Base, get_db
 from app.models import database_models, schemas
 from app.api import endpoints
 

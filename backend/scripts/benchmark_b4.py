@@ -4,8 +4,9 @@ import json
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from app.services.auditor import analyze_text_quality
+from language_engine.auditor import analyze_text_quality
 
 total_arkitekturo_metrics = {
     "radiko_resolved": 0,

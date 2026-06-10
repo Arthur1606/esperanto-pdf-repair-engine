@@ -1,12 +1,15 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from app.core.database import get_db, SessionLocal
+from language_engine.database import get_db, SessionLocal
 from app.models import database_models, schemas
-from app.services.auditor import analyze_pdf_fonts, analyze_text_quality
+from language_engine.auditor import analyze_pdf_fonts, analyze_text_quality
 from app.services.report_generator import generate_pdf_report
-from app.services.pdf_preservation import repair_pdf
+from language_engine.pdf_repair import repair_pdf
 from typing import Dict, List, Any
 import logging
 import os
