@@ -37,6 +37,13 @@ class Sidebar(QWidget):
         # ── Brand ──────────────────────────────────────
         self.brand_label = QLabel("ESPERANTO")
         self.brand_label.setObjectName("SidebarBrand")
+        
+        # Hide initially for Genesis Morph
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+        self._brand_effect = QGraphicsOpacityEffect(self.brand_label)
+        self._brand_effect.setOpacity(0)
+        self.brand_label.setGraphicsEffect(self._brand_effect)
+        
         layout.addWidget(self.brand_label)
 
         layout.addSpacing(24)

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QPropertyAnimation, QEasingCurve
 from gui.components.sidebar import Sidebar
-from gui.components.splash_screen import SplashScreen
+from gui.components.genesis_overlay import GenesisOverlay
 from gui.panels.mission_control import MissionControlPanel
 from gui.panels.review_panel import ReviewPanel
 from gui.services.tekira_service import TekiraService
@@ -27,16 +27,9 @@ class MainWindow(QMainWindow):
         self.jobs = []
         self.workers = {}
 
-        # ── Root Stack: Splash over Main ───────────────
-        self.root_stack = QStackedWidget()
-        self.setCentralWidget(self.root_stack)
-
-        # ── Splash ─────────────────────────────────────
-        self.splash = SplashScreen()
-        self.root_stack.addWidget(self.splash)
-
-        # ── Main Content ───────────────────────────────
+        # ── Main Content Container ──────────────────────
         self.main_container = QWidget()
+        self.setCentralWidget(self.main_container)
         main_layout = QHBoxLayout(self.main_container)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -57,29 +50,22 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.content_stack)
 
-        self.root_stack.addWidget(self.main_container)
+        # ── Genesis Overlay (Floats on top) ───────────
+        self.genesis_overlay = GenesisOverlay(self)
+        self.genesis_overlay.resize(1200, 800)
 
-        # Start on splash
-        self.root_stack.setCurrentWidget(self.splash)
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.genesis_overlay.resize(self.size())
 
     def showEvent(self, event):
         super().showEvent(event)
-        # Trigger splash animation after window is visible
-        self.splash.start(self._transition_to_main)
-
-    def _transition_to_main(self):
-        """Fade the main UI in after splash dissolves."""
-        self.root_stack.setCurrentWidget(self.main_container)
-
-        self._main_effect = QGraphicsOpacityEffect(self.main_container)
-        self.main_container.setGraphicsEffect(self._main_effect)
-
-        self._main_fade = QPropertyAnimation(self._main_effect, b"opacity")
-        self._main_fade.setDuration(TDS.ANIM_SLOW)
-        self._main_fade.setStartValue(0)
-        self._main_fade.setEndValue(1)
-        self._main_fade.setEasingCurve(QEasingCurve.OutCubic)
-        self._main_fade.start()
+        # Start Structural Constancy Sequence
+        self.genesis_overlay.start(
+            target_widget=self.sidebar.brand_label,
+            main_container=self.main_container,
+            on_complete=None
+        )
 
     def navigate(self, view_id: str):
         if view_id == "dashboard":
